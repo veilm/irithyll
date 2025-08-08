@@ -12,6 +12,10 @@ canvas.height = CANVAS_HEIGHT;
 const ctx = canvas.getContext("2d");
 
 function setPixel(data, x, y, isOn = true) {
+	// Invert so that 0 is the bottom. easier to reason about for
+	// Cartesian-friends
+	y = CANVAS_HEIGHT - y;
+
 	// 4: 4 bytes (r, g, b, a) per pixel
 	const i = 4 * (y * CANVAS_WIDTH + x);
 
@@ -34,18 +38,19 @@ const patterns = {
 		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y);
 	},
 	hor_third: (data) => {
-		const y = Math.round((CANVAS_HEIGHT * 1) / 3);
+		const y = Math.round((CANVAS_HEIGHT * 2) / 3);
 		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y);
 	},
 	hor_third_h2: (data) => {
-		const y = Math.round((CANVAS_HEIGHT * 1) / 3);
+		const y = Math.round((CANVAS_HEIGHT * 2) / 3);
 		for (let x = 0; x < CANVAS_WIDTH; x++)
 			setPixel(data, x, y), setPixel(data, x, y + 1);
 	},
 	hor_third_h3_split: (data) => {
-		const y = Math.round((CANVAS_HEIGHT * 1) / 3);
+		const y = Math.round((CANVAS_HEIGHT * 2) / 3);
+
 		for (let x = 0; x < CANVAS_WIDTH; x++)
-			setPixel(data, x, y), setPixel(data, x, y + 2);
+			setPixel(data, x, y - 1), setPixel(data, x, y + 1);
 	},
 };
 const PRIMARY_PATTERN = "hor_third_h3_split";
