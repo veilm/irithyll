@@ -23,7 +23,9 @@ function setPixel(data, x, y, isOn = true) {
 }
 
 customTextarea.innerHTML = `for (let x = 0; x < CANVAS_WIDTH; x++) {
-	setPixel(data, x, 200);
+
+setPixel(data, x, 200);
+
 }`;
 
 const patterns = {
@@ -40,8 +42,13 @@ const patterns = {
 		for (let x = 0; x < CANVAS_WIDTH; x++)
 			setPixel(data, x, y), setPixel(data, x, y + 1);
 	},
+	hor_third_h3_split: (data) => {
+		const y = Math.round((CANVAS_HEIGHT * 1) / 3);
+		for (let x = 0; x < CANVAS_WIDTH; x++)
+			setPixel(data, x, y), setPixel(data, x, y + 2);
+	},
 };
-const PRIMARY_PATTERN = "hor_third_h2";
+const PRIMARY_PATTERN = "hor_third_h3_split";
 
 Object.keys(patterns)
 	.reverse()
@@ -65,10 +72,15 @@ function main() {
 	clearScreen(data);
 
 	const selectedPattern = patternSelect.value;
-	const patternKey =
-		selectedPattern == "primary" ? PRIMARY_PATTERN : selectedPattern;
+	if (selectedPattern == "custom") {
+		const customPatternStr = customTextarea.value;
+		eval(customPatternStr);
+	} else {
+		const patternKey =
+			selectedPattern == "primary" ? PRIMARY_PATTERN : selectedPattern;
 
-	patterns[patternKey](data);
+		patterns[patternKey](data);
+	}
 
 	// draw the frame
 	ctx.putImageData(frame, 0, 0);
@@ -77,3 +89,17 @@ function main() {
 patternSelect.onchange = () => {
 	main();
 };
+
+// Use Ctrl+Enter to submit
+customTextarea.onkeyup = () => {
+	patternSelect.value = "custom";
+};
+
+// Global Ctrl+Enter handler
+document.addEventListener("keydown", (e) => {
+	if (e.ctrlKey && e.key === "Enter") {
+		main();
+	}
+});
+
+main();
