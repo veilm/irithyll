@@ -16,6 +16,9 @@ function setPixel(data, x, y, isOn = true) {
 	// Cartesian-friends
 	y = CANVAS_HEIGHT - y;
 
+	x = Math.round(x);
+	y = Math.round(y);
+
 	// 4: 4 bytes (r, g, b, a) per pixel
 	const i = 4 * (y * CANVAS_WIDTH + x);
 
@@ -26,9 +29,19 @@ function setPixel(data, x, y, isOn = true) {
 	data[i + 3] = 255; // a
 }
 
-customTextarea.innerHTML = `for (let x = 0; x < CANVAS_WIDTH; x++) {
+customTextarea.innerHTML = `// infer it yourself
 
-setPixel(data, x, 200);
+const startY = CANVAS_HEIGHT / 5;
+const paddingX = CANVAS_WIDTH / 10;
+
+for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
+
+const y = startY + (x * x) / CANVAS_WIDTH / 2;
+console.log(y);
+
+setPixel(data, x, y);
+setPixel(data, x, y + 1);
+setPixel(data, x, y + 2);
 
 }`;
 
@@ -52,8 +65,34 @@ const patterns = {
 		for (let x = 0; x < CANVAS_WIDTH; x++)
 			setPixel(data, x, y - 1), setPixel(data, x, y + 1);
 	},
+	parabola_up_0: (data) => {
+		const startY = CANVAS_HEIGHT / 5;
+		const paddingX = CANVAS_WIDTH / 10;
+
+		for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
+			const y = startY + (x * x) / CANVAS_WIDTH / 2;
+			console.log(y);
+
+			setPixel(data, x, y);
+			setPixel(data, x, y + 1);
+			setPixel(data, x, y + 2);
+		}
+	},
+	parabola_down_0: (data) => {
+		const startY = (CANVAS_HEIGHT * 4) / 5;
+		const paddingX = CANVAS_WIDTH / 10;
+
+		for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
+			const y = startY - (x * x) / CANVAS_WIDTH / 2;
+			console.log(y);
+
+			setPixel(data, x, y);
+			setPixel(data, x, y + 1);
+			setPixel(data, x, y + 2);
+		}
+	},
 };
-const PRIMARY_PATTERN = "hor_third_h3_split";
+const PRIMARY_PATTERN = "parabola_up_0";
 
 Object.keys(patterns)
 	.reverse()
@@ -96,13 +135,14 @@ patternSelect.onchange = () => {
 };
 
 // Use Ctrl+Enter to submit
-customTextarea.onkeyup = () => {
-	patternSelect.value = "custom";
-};
+// customTextarea.onkeyup = () => {
+// 	patternSelect.value = "custom";
+// };
 
 // Global Ctrl+Enter handler
 document.addEventListener("keydown", (e) => {
 	if (e.ctrlKey && e.key === "Enter") {
+		patternSelect.value = "custom";
 		main();
 	}
 });
