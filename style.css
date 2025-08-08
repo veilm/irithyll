@@ -5,6 +5,17 @@ body {
 	margin-right: 100px;
 
 	color: white;
+	/* font-family: "PT Serif", serif; */
+	/* font-family: "Playwrite AU QLD", cursive; */
+	/* font-optical-sizing: auto; */
+	/* font-weight: 400; */
+	/* font-style: normal; */
+
+	font-family: "Playwrite AU QLD", cursive;
+	font-optical-sizing: auto;
+	font-weight: 300;
+	font-style: normal;
+	font-size: 12px;
 
 	display: grid;
 	grid-template-columns: 300px 1fr;
@@ -12,6 +23,19 @@ body {
 
 div#sidebar {
 	border: 2px solid white;
+	text-align: center;
+}
+
+h1 {
+	font-family: "Love Light", cursive;
+	font-weight: 400;
+	font-style: normal;
+	font-size: 50px;
+}
+
+a {
+	color: white;
+	text-decoration: underline;
 }
 
 canvas {
