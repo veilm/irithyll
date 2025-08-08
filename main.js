@@ -1,5 +1,6 @@
-const CANVAS_WIDTH = 1920 * 3/4
-const CANVAS_HEIGHT = 1080 * 3/4
+// const CANVAS_WIDTH = 1920 * 3/4
+const CANVAS_WIDTH = (1080 * 4/3) * 3/4
+const CANVAS_HEIGHT = (1080) * 3/4
 
 const canvas = document.getElementById("canvas")
 canvas.width = CANVAS_WIDTH

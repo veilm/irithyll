@@ -1,3 +1,20 @@
 body {
 	background-color: black;
+	margin-top: 50px;
+	margin-left: 100px;
+	margin-right: 100px;
+
+	color: white;
+
+	display: grid;
+	grid-template-columns: 300px 1fr;
+}
+
+div#sidebar {
+	border: 2px solid white;
+}
+
+canvas {
+	border: 2px solid white;
+	justify-self: end;
 }
