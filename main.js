@@ -27,29 +27,53 @@ customTextarea.innerHTML = `for (let x = 0; x < CANVAS_WIDTH; x++) {
 }`;
 
 const patterns = {
-	line0: (data) => {
-		for (let x = 0; x < CANVAS_WIDTH; x++) {
-			setPixel(data, x, 200);
-		}
+	hor_half: (data) => {
+		const y = Math.round(CANVAS_HEIGHT / 2);
+		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y);
+	},
+	hor_third: (data) => {
+		const y = Math.round((CANVAS_HEIGHT * 1) / 3);
+		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y);
+	},
+	hor_third_h2: (data) => {
+		const y = Math.round((CANVAS_HEIGHT * 1) / 3);
+		for (let x = 0; x < CANVAS_WIDTH; x++)
+			setPixel(data, x, y), setPixel(data, x, y + 1);
 	},
 };
-const PRIMARY_PATTERN_NAME = "line0";
+const PRIMARY_PATTERN = "hor_third_h2";
 
-Object.keys(patterns).forEach((pattern) => {
-	const option = document.createElement("option");
-	option.value = pattern;
-	option.innerHTML = pattern;
-	patternSelect.appendChild(option);
-});
+Object.keys(patterns)
+	.reverse()
+	.forEach((pattern) => {
+		const option = document.createElement("option");
+		option.value = pattern;
+		option.innerHTML = pattern;
+		patternSelect.appendChild(option);
+	});
+
+function clearScreen(data) {
+	for (let y = 0; y < CANVAS_HEIGHT; y++) {
+		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y, false);
+	}
+}
 
 function main() {
 	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
 	const data = frame.data;
 
-	patterns[PRIMARY_PATTERN_NAME](data);
+	clearScreen(data);
 
-	// push the frame
+	const selectedPattern = patternSelect.value;
+	const patternKey =
+		selectedPattern == "primary" ? PRIMARY_PATTERN : selectedPattern;
+
+	patterns[patternKey](data);
+
+	// draw the frame
 	ctx.putImageData(frame, 0, 0);
 }
 
-main();
+patternSelect.onchange = () => {
+	main();
+};
