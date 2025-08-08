@@ -31,6 +31,7 @@ h1 {
 	font-weight: 400;
 	font-style: normal;
 	font-size: 50px;
+	margin-bottom: 0;
 }
 
 a {
@@ -41,4 +42,39 @@ a {
 canvas {
 	border: 2px solid white;
 	justify-self: end;
+}
+
+button {
+	font-family: "Playwrite AU QLD", cursive;
+	font-optical-sizing: auto;
+	font-weight: 300;
+	font-style: normal;
+	font-size: 12px;
+
+	color: white;
+	background: black;
+	border: 2px solid white;
+}
+button:hover {
+	background: #333;
+}
+
+textarea {
+	background: black;
+	color: white;
+	border: 0;
+	display: block;
+	margin: auto;
+}
+
+select {
+	background-color: black;
+	color: white;
+	border: 2px solid white;
+
+	font-family: "Playwrite AU QLD", cursive;
+	font-optical-sizing: auto;
+	font-weight: 300;
+	font-style: normal;
+	font-size: 12px;
 }
