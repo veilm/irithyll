@@ -14,7 +14,13 @@ const ctx = canvas.getContext("2d");
 // Will store loaded pattern code
 const patterns = {};
 
-function setPixel(data, x, y, isOn = true) {
+// data: always pass
+// x: from 0 (left) to CANVAS_WIDTH (right)
+// y: from 0 (bottom) to CANVAS_HEIGHT (top)
+// brightness: from 0.0 to 1.0
+function setPixel(data, x, y, brightness = 1) {
+	brightness = Math.round(brightness * 255);
+
 	// Invert so that 0 is the bottom. easier to reason about for
 	// Cartesian-friends
 	y = CANVAS_HEIGHT - y;
@@ -22,13 +28,14 @@ function setPixel(data, x, y, isOn = true) {
 	x = Math.round(x);
 	y = Math.round(y);
 
+	if (x < 0 || x > CANVAS_WIDTH || y < 0 || y > CANVAS_HEIGHT) return;
+
 	// 4: 4 bytes (r, g, b, a) per pixel
 	const i = 4 * (y * CANVAS_WIDTH + x);
 
-	const color = isOn ? 255 : 0;
-	data[i] = color; // r
-	data[i + 1] = color; // g
-	data[i + 2] = color; // b
+	data[i] = brightness; // r
+	data[i + 1] = brightness; // g
+	data[i + 2] = brightness; // b
 	data[i + 3] = 255; // a
 }
 
@@ -62,6 +69,21 @@ async function loadPatterns() {
 	} else if (PATTERN_LIST.length > 0 && patterns[PATTERN_LIST[0]]) {
 		patternSelect.value = PATTERN_LIST[0];
 		codeTextarea.value = patterns[PATTERN_LIST[0]];
+	}
+}
+
+// source: /home/oboro/src/irithyll/patterns/grid.js
+function grid(data, gridCols = 12, gridRows = (12 * 3) / 4, brightness = 0.2) {
+	for (let i = 0; i < gridCols; i++) {
+		const x = i * (CANVAS_WIDTH / gridCols);
+
+		for (let y = 0; y < CANVAS_HEIGHT; y++) setPixel(data, x, y, brightness);
+	}
+
+	for (let i = 0; i < gridRows; i++) {
+		const y = i * (CANVAS_HEIGHT / gridRows);
+
+		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y, brightness);
 	}
 }
 
