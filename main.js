@@ -3,7 +3,7 @@ const CANVAS_WIDTH = (((1080 * 4) / 3) * 3) / 4;
 const CANVAS_HEIGHT = (1080 * 3) / 4;
 
 const canvas = document.getElementById("canvas");
-const customTextarea = document.getElementById("customTextarea");
+const codeTextarea = document.getElementById("codeTextarea");
 const patternSelect = document.getElementById("pattern");
 
 canvas.width = CANVAS_WIDTH;
@@ -32,24 +32,7 @@ function setPixel(data, x, y, isOn = true) {
 	data[i + 3] = 255; // a
 }
 
-// Default custom pattern text
-const DEFAULT_CUSTOM_PATTERN = `// infer it yourself
-
-const startY = CANVAS_HEIGHT / 5;
-const paddingX = CANVAS_WIDTH / 10;
-
-for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
-
-const y = startY + (x * x) / CANVAS_WIDTH / 2;
-console.log(y);
-
-setPixel(data, x, y);
-setPixel(data, x, y + 1);
-setPixel(data, x, y + 2);
-
-}`;
-
-customTextarea.innerHTML = DEFAULT_CUSTOM_PATTERN;
+// Textarea will be populated with selected pattern on load
 
 const PRIMARY_PATTERN = "parabola_up_0";
 
@@ -75,10 +58,10 @@ async function loadPatterns() {
 	// Auto-select the PRIMARY_PATTERN if it exists, otherwise first pattern
 	if (patterns[PRIMARY_PATTERN]) {
 		patternSelect.value = PRIMARY_PATTERN;
-		customTextarea.value = patterns[PRIMARY_PATTERN];
+		codeTextarea.value = patterns[PRIMARY_PATTERN];
 	} else if (PATTERN_LIST.length > 0 && patterns[PATTERN_LIST[0]]) {
 		patternSelect.value = PATTERN_LIST[0];
-		customTextarea.value = patterns[PATTERN_LIST[0]];
+		codeTextarea.value = patterns[PATTERN_LIST[0]];
 	}
 }
 
@@ -95,8 +78,8 @@ function main() {
 	clearScreen(data);
 
 	// Always execute what's in the textarea
-	const customPatternStr = customTextarea.value;
-	eval(customPatternStr);
+	const patternCode = codeTextarea.value;
+	eval(patternCode);
 
 	// draw the frame
 	ctx.putImageData(frame, 0, 0);
@@ -107,18 +90,11 @@ patternSelect.onchange = () => {
 
 	// Load the selected pattern into the textarea
 	if (patterns[selectedPattern]) {
-		customTextarea.value = patterns[selectedPattern];
-	} else {
-		customTextarea.value = DEFAULT_CUSTOM_PATTERN;
+		codeTextarea.value = patterns[selectedPattern];
 	}
 
 	main();
 };
-
-// Use Ctrl+Enter to submit
-// customTextarea.onkeyup = () => {
-// 	patternSelect.value = "custom";
-// };
 
 // Global Ctrl+Enter handler - just re-render with current textarea content
 document.addEventListener("keydown", (e) => {
