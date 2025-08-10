@@ -1,15 +1,25 @@
+* {
+	box-sizing: border-box;
+}
+
 body {
 	background-color: black;
-	margin-top: 50px;
-	margin-left: 100px;
-	margin-right: 100px;
+	background-image:
+		radial-gradient(
+			circle at 20% 50%,
+			rgba(229, 50, 46, 0.05) 0%,
+			transparent 50%
+		),
+		radial-gradient(
+			circle at 80% 80%,
+			rgba(229, 50, 46, 0.03) 0%,
+			transparent 50%
+		);
+	margin: 0;
+	padding: 50px;
+	min-height: 100vh;
 
 	color: white;
-	/* font-family: "PT Serif", serif; */
-	/* font-family: "Playwrite AU QLD", cursive; */
-	/* font-optical-sizing: auto; */
-	/* font-weight: 400; */
-	/* font-style: normal; */
 
 	font-family: "Playwrite AU QLD", cursive;
 	font-optical-sizing: auto;
@@ -18,12 +28,42 @@ body {
 	font-size: 12px;
 
 	display: grid;
-	grid-template-columns: 300px 1fr;
+	grid-template-columns: 320px 1fr;
+	gap: 30px;
+	align-items: start;
+}
+
+@media (max-width: 1024px) {
+	body {
+		padding: 20px;
+		grid-template-columns: 1fr;
+		gap: 20px;
+	}
+
+	canvas {
+		width: 100% !important;
+		height: auto !important;
+		justify-self: center !important;
+	}
 }
 
 div#sidebar {
-	border: 2px solid white;
+	border: 2px solid rgba(255, 255, 255, 0.9);
 	text-align: center;
+	padding: 30px 20px;
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(10px);
+	box-shadow: 0 10px 40px rgba(229, 50, 46, 0.1);
+	transition:
+		box-shadow 0.3s ease,
+		transform 0.3s ease;
+	position: sticky;
+	top: 50px;
+}
+
+div#sidebar:hover {
+	box-shadow: 0 15px 50px rgba(229, 50, 46, 0.15);
+	transform: translateY(-2px);
 }
 
 h1 {
@@ -31,19 +71,55 @@ h1 {
 	font-weight: 400;
 	font-style: normal;
 	font-size: 50px;
-	margin-bottom: 0;
+	margin: 0 0 10px 0;
+	letter-spacing: 2px;
+	text-shadow: 0 0 20px rgba(229, 50, 46, 0.3);
+}
+
+h1 span {
+	animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.7;
+	}
 }
 
 a {
-	/* color: white; */
 	color: #e5322e;
+	text-decoration: none;
+	position: relative;
+	transition: color 0.3s ease;
+}
 
-	text-decoration: underline;
+a::after {
+	content: "";
+	position: absolute;
+	bottom: -2px;
+	left: 0;
+	width: 0;
+	height: 1px;
+	background: #e5322e;
+	transition: width 0.3s ease;
+}
+
+a:hover {
+	color: #ff4a46;
+}
+
+a:hover::after {
+	width: 100%;
 }
 
 canvas {
-	border: 2px solid white;
+	border: 2px solid rgba(255, 255, 255, 0.9);
 	justify-self: end;
+	box-shadow: 0 10px 40px rgba(229, 50, 46, 0.1);
 }
 
 button {
@@ -56,28 +132,98 @@ button {
 	color: white;
 	background: black;
 	border: 2px solid white;
+	padding: 8px 16px;
+	cursor: pointer;
+	transition: all 0.3s ease;
 }
+
 button:hover {
-	background: #333;
+	background: #e5322e;
+	border-color: #e5322e;
+	transform: translateY(-2px);
+	box-shadow: 0 5px 15px rgba(229, 50, 46, 0.3);
+}
+
+button:active {
+	transform: translateY(0);
 }
 
 textarea {
-	background: black;
+	background: rgba(0, 0, 0, 0.5);
 	color: white;
-	border: 0;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
 	display: block;
-	margin: auto;
-	height: 300px;
+	margin: 20px auto;
+	padding: 10px;
+	width: 90%;
+	height: 250px;
+	font-family: "Courier New", monospace;
+	font-size: 13px;
+	line-height: 1.5;
+	resize: vertical;
+	transition: all 0.3s ease;
+}
+
+textarea:focus {
+	outline: none;
+	border-color: #e5322e;
+	box-shadow: 0 0 15px rgba(229, 50, 46, 0.2);
+	background: rgba(0, 0, 0, 0.8);
+}
+
+textarea::placeholder {
+	color: rgba(255, 255, 255, 0.4);
+	font-style: italic;
 }
 
 select {
-	background-color: black;
+	background-color: rgba(0, 0, 0, 0.5);
 	color: white;
-	border: 2px solid white;
+	border: 2px solid rgba(255, 255, 255, 0.5);
+	border-radius: 4px;
+	padding: 8px 12px;
+	width: 90%;
+	cursor: pointer;
+	transition: all 0.3s ease;
 
 	font-family: "Playwrite AU QLD", cursive;
 	font-optical-sizing: auto;
 	font-weight: 300;
 	font-style: normal;
 	font-size: 12px;
+}
+
+select:hover {
+	border-color: rgba(255, 255, 255, 0.9);
+	background-color: rgba(0, 0, 0, 0.8);
+}
+
+select:focus {
+	outline: none;
+	border-color: #e5322e;
+	box-shadow: 0 0 10px rgba(229, 50, 46, 0.2);
+}
+
+.keyboard-hint {
+	display: inline-block;
+	background: rgba(229, 50, 46, 0.2);
+	border: 1px solid rgba(229, 50, 46, 0.5);
+	border-radius: 3px;
+	padding: 2px 6px;
+	margin: 10px 0;
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-5px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
