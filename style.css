@@ -18,20 +18,19 @@ body {
 		); */
 
 	/* 2x strength (moderate) */
-	/*
 	background-image:
 		radial-gradient(
 			circle at 20% 50%,
-			rgba(229, 50, 46, 0.10) 0%,
+			rgba(229, 50, 46, 0.1) 0%,
 			transparent 50%
 		),
 		radial-gradient(
 			circle at 80% 80%,
 			rgba(229, 50, 46, 0.06) 0%,
 			transparent 50%
-		); */
+		);
 
-	background-image:
+	/* background-image:
 		radial-gradient(
 			circle at 20% 50%,
 			rgba(229, 50, 46, 0.15) 0%,
@@ -41,7 +40,7 @@ body {
 			circle at 80% 80%,
 			rgba(229, 50, 46, 0.09) 0%,
 			transparent 50%
-		);
+		); */
 
 	/* 4x strength (strong) */
 	/*
@@ -57,7 +56,7 @@ body {
 			transparent 50%
 		); */
 	margin: 0;
-	padding: 50px;
+	padding: 0;
 	min-height: 100vh;
 
 	color: white;
@@ -68,23 +67,41 @@ body {
 	font-style: normal;
 	font-size: 12px;
 
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 50px;
+}
+
+.container {
 	display: grid;
 	grid-template-columns: 320px 1fr;
-	gap: 30px;
+	gap: 50px;
 	align-items: start;
+	width: 100%;
+	max-width: 1200px;
 }
 
 @media (max-width: 1024px) {
 	body {
 		padding: 20px;
+		align-items: start;
+	}
+
+	.container {
 		grid-template-columns: 1fr;
-		gap: 20px;
+		gap: 30px;
+		max-width: 600px;
 	}
 
 	canvas {
 		width: 100% !important;
 		height: auto !important;
-		justify-self: center !important;
+	}
+
+	div#sidebar {
+		position: static !important;
+		top: auto !important;
 	}
 }
 
@@ -108,6 +125,8 @@ div#sidebar {
 		transform 0.3s ease;
 	position: sticky;
 	top: 50px;
+	max-height: calc(100vh - 100px);
+	overflow-y: auto;
 }
 
 div#sidebar:hover {
@@ -167,8 +186,9 @@ a:hover::after {
 
 canvas {
 	border: 2px solid rgba(255, 255, 255, 0.9);
-	justify-self: end;
 	box-shadow: 0 10px 40px rgba(229, 50, 46, 0.1);
+	width: 100%;
+	height: auto;
 }
 
 button {

@@ -24,29 +24,31 @@
 		>
 	</head>
 	<body>
-		<div id="sidebar">
-			<h1>
-				Irithyll <span style="font-size: 30px;">🩸</span>
-			</h1>
-			<p style="margin-bottom: 40px;">
-				<a href="https://github.com/veilm/irithyll">GitHub</a>
-			</p>
+		<div class="container">
+			<div id="sidebar">
+				<h1>
+					Irithyll <span style="font-size: 30px;">🩸</span>
+				</h1>
+				<p style="margin-bottom: 40px;">
+					<a href="https://github.com/veilm/irithyll">GitHub</a>
+				</p>
 
-			<!-- <button style="margin-top: 30px;">Clear (C-l)</button> -->
+				<!-- <button style="margin-top: 30px;">Clear (C-l)</button> -->
 
-			<!-- Pattern options populated from JS -->
-			<select id="pattern"></select>
+				<!-- Pattern options populated from JS -->
+				<select id="pattern"></select>
 
-			<textarea
-				id="codeTextarea"
-				style="margin-top: 30px;"
-				placeholder="Your function..."
-				spellcheck="false"
-			></textarea>
+				<textarea
+					id="codeTextarea"
+					style="margin-top: 30px;"
+					placeholder="Your function..."
+					spellcheck="false"
+				></textarea>
 
-			<p class="keyboard-hint">Ctrl+Enter to Draw</p>
+				<p class="keyboard-hint">Ctrl+Enter to Draw</p>
+			</div>
+			<canvas id="canvas"></canvas>
 		</div>
-		<canvas id="canvas"></canvas>
 
 		<script src="pattern-list.js"></script>
 		<script src="main.js"></script>
