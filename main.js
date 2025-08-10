@@ -125,6 +125,12 @@ document.addEventListener("keydown", (e) => {
 	}
 });
 
+// Add click handler for the draw button
+const drawButton = document.getElementById("drawButton");
+drawButton.addEventListener("click", () => {
+	main();
+});
+
 // Initialize patterns and start
 loadPatterns().then(() => {
 	main();
