@@ -94,16 +94,9 @@ function main() {
 
 	clearScreen(data);
 
-	const selectedPattern = patternSelect.value;
-	if (selectedPattern == "custom") {
-		const customPatternStr = customTextarea.value;
-		eval(customPatternStr);
-	} else {
-		// Execute the pattern code string
-		if (patterns[selectedPattern]) {
-			eval(patterns[selectedPattern]);
-		}
-	}
+	// Always execute what's in the textarea
+	const customPatternStr = customTextarea.value;
+	eval(customPatternStr);
 
 	// draw the frame
 	ctx.putImageData(frame, 0, 0);
@@ -112,13 +105,11 @@ function main() {
 patternSelect.onchange = () => {
 	const selectedPattern = patternSelect.value;
 
-	// Load the selected pattern into the textarea (except for custom)
-	if (selectedPattern !== "custom") {
-		if (patterns[selectedPattern]) {
-			customTextarea.value = patterns[selectedPattern];
-		} else {
-			customTextarea.value = DEFAULT_CUSTOM_PATTERN;
-		}
+	// Load the selected pattern into the textarea
+	if (patterns[selectedPattern]) {
+		customTextarea.value = patterns[selectedPattern];
+	} else {
+		customTextarea.value = DEFAULT_CUSTOM_PATTERN;
 	}
 
 	main();
@@ -129,10 +120,9 @@ patternSelect.onchange = () => {
 // 	patternSelect.value = "custom";
 // };
 
-// Global Ctrl+Enter handler
+// Global Ctrl+Enter handler - just re-render with current textarea content
 document.addEventListener("keydown", (e) => {
 	if (e.ctrlKey && e.key === "Enter") {
-		patternSelect.value = "custom";
 		main();
 	}
 });
