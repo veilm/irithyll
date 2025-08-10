@@ -185,4 +185,7 @@ document.addEventListener("keydown", (e) => {
 	}
 });
 
-main();
+// Initialize patterns and start
+loadPatterns().then(() => {
+	main();
+});
