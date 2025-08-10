@@ -3,10 +3,12 @@
 Automatically generates pattern-list.js from the patterns directory.
 Run this script after adding, renaming, or deleting pattern files.
 Sorts patterns by CREATED timestamp (newest first).
+Auto-adds CREATED timestamp to files missing one.
 """
 
 import os
 import re
+import time
 
 
 def main():
@@ -33,10 +35,22 @@ def main():
                 except Exception as e:
                     print(f"Warning: Could not read {filename}: {e}")
 
-                # If no timestamp found, use 0 (will sort to end)
+                # If no timestamp found, add one to the file
                 if timestamp is None:
-                    timestamp = 0
-                    print(f"Warning: No CREATED timestamp found in {filename}")
+                    timestamp = int(time.time())
+                    print(
+                        f"\033[1;31mWarning: No CREATED timestamp found in {filename}\033[0m"
+                    )
+                    print(f"  → Auto-adding CREATED={timestamp} to the file")
+
+                    try:
+                        with open(filepath, "a") as f:
+                            # Add newline if file doesn't end with one
+                            if content and not content.endswith("\n"):
+                                f.write("\n")
+                            f.write(f"\n// CREATED={timestamp}\n")
+                    except Exception as e:
+                        print(f"  → Error adding timestamp to {filename}: {e}")
 
                 pattern_data.append((timestamp, pattern_name))
 
@@ -60,13 +74,10 @@ def main():
         f.write(js_content)
 
     print(
-        f"Generated pattern-list.js with {len(pattern_data)} patterns (sorted newest first):"
+        f"\nGenerated pattern-list.js with {len(pattern_data)} patterns (sorted newest first):"
     )
     for timestamp, pattern in pattern_data:
-        if timestamp > 0:
-            print(f"  - {pattern} (timestamp: {timestamp})")
-        else:
-            print(f"  - {pattern} (no timestamp)")
+        print(f"  - {pattern} (timestamp: {timestamp})")
 
 
 if __name__ == "__main__":
