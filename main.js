@@ -11,6 +11,9 @@ canvas.height = CANVAS_HEIGHT;
 
 const ctx = canvas.getContext("2d");
 
+// Will store loaded pattern code
+const patterns = {};
+
 function setPixel(data, x, y, isOn = true) {
 	// Invert so that 0 is the bottom. easier to reason about for
 	// Cartesian-friends
@@ -29,7 +32,8 @@ function setPixel(data, x, y, isOn = true) {
 	data[i + 3] = 255; // a
 }
 
-customTextarea.innerHTML = `// infer it yourself
+// Default custom pattern text
+const DEFAULT_CUSTOM_PATTERN = `// infer it yourself
 
 const startY = CANVAS_HEIGHT / 5;
 const paddingX = CANVAS_WIDTH / 10;
@@ -45,101 +49,36 @@ setPixel(data, x, y + 2);
 
 }`;
 
-const patterns = {
-	hor_half: (data) => {
-		const y = Math.round(CANVAS_HEIGHT / 2);
-		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y);
-	},
-	hor_third: (data) => {
-		const y = Math.round((CANVAS_HEIGHT * 2) / 3);
-		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y);
-	},
-	hor_third_h2: (data) => {
-		const y = Math.round((CANVAS_HEIGHT * 2) / 3);
-		for (let x = 0; x < CANVAS_WIDTH; x++)
-			setPixel(data, x, y), setPixel(data, x, y + 1);
-	},
-	hor_third_h3_split: (data) => {
-		const y = Math.round((CANVAS_HEIGHT * 2) / 3);
+customTextarea.innerHTML = DEFAULT_CUSTOM_PATTERN;
 
-		for (let x = 0; x < CANVAS_WIDTH; x++)
-			setPixel(data, x, y - 1), setPixel(data, x, y + 1);
-	},
-	parabola_up_0: (data) => {
-		const startY = CANVAS_HEIGHT / 5;
-		const paddingX = CANVAS_WIDTH / 10;
-
-		for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
-			const y = startY + (x * x) / CANVAS_WIDTH / 2;
-			console.log(y);
-
-			setPixel(data, x, y);
-			setPixel(data, x, y + 1);
-			setPixel(data, x, y + 2);
-		}
-	},
-	parabola_down_0: (data) => {
-		const startY = (CANVAS_HEIGHT * 4) / 5;
-		const paddingX = CANVAS_WIDTH / 10;
-
-		for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
-			const y = startY - (x * x) / CANVAS_WIDTH / 2;
-			console.log(y);
-
-			setPixel(data, x, y);
-			setPixel(data, x, y + 1);
-			setPixel(data, x, y + 2);
-		}
-	},
-	parabola_n_0: (data) => {
-		const vertex = (CANVAS_HEIGHT * 4) / 5;
-		const paddingX = CANVAS_WIDTH / 10;
-
-		for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
-			const domain = CANVAS_WIDTH - paddingX - paddingX;
-			const halfDomain = domain / 2;
-
-			// we want our paddingX to be like a -halfDomain
-			// it's a constant offset so it's just -paddingX - halfDomain
-			const x2 = x - paddingX - halfDomain;
-
-			const y = vertex - ((x2 * x2) / CANVAS_WIDTH) * 3;
-
-			setPixel(data, x, y);
-			setPixel(data, x, y + 1);
-			setPixel(data, x, y + 2);
-		}
-	},
-	parabola_u_0: (data) => {
-		const vertex = (CANVAS_HEIGHT * 1) / 5;
-		const paddingX = CANVAS_WIDTH / 10;
-
-		for (let x = paddingX; x < CANVAS_WIDTH - paddingX; x++) {
-			const domain = CANVAS_WIDTH - paddingX - paddingX;
-			const halfDomain = domain / 2;
-
-			// we want our paddingX to be like a -halfDomain
-			// it's a constant offset so it's just -paddingX - halfDomain
-			const x2 = x - paddingX - halfDomain;
-
-			const y = vertex + ((x2 * x2) / CANVAS_WIDTH) * 3;
-
-			setPixel(data, x, y);
-			setPixel(data, x, y + 1);
-			setPixel(data, x, y + 2);
-		}
-	},
-};
 const PRIMARY_PATTERN = "parabola_up_0";
 
-Object.keys(patterns)
-	.reverse()
-	.forEach((pattern) => {
-		const option = document.createElement("option");
-		option.value = pattern;
-		option.innerHTML = pattern;
-		patternSelect.appendChild(option);
-	});
+// Load all patterns from individual files
+async function loadPatterns() {
+	for (const patternName of PATTERN_LIST) {
+		try {
+			const response = await fetch(`patterns/${patternName}.js`);
+			patterns[patternName] = await response.text();
+		} catch (error) {
+			console.error(`Failed to load pattern ${patternName}:`, error);
+		}
+	}
+
+	// Add pattern options to select
+	PATTERN_LIST.slice()
+		.reverse()
+		.forEach((pattern) => {
+			const option = document.createElement("option");
+			option.value = pattern;
+			option.innerHTML = pattern;
+			patternSelect.appendChild(option);
+		});
+
+	// Set initial pattern text if primary pattern is selected
+	if (patternSelect.value === "primary" && patterns[PRIMARY_PATTERN]) {
+		customTextarea.value = patterns[PRIMARY_PATTERN];
+	}
+}
 
 function clearScreen(data) {
 	for (let y = 0; y < CANVAS_HEIGHT; y++) {
@@ -161,7 +100,10 @@ function main() {
 		const patternKey =
 			selectedPattern == "primary" ? PRIMARY_PATTERN : selectedPattern;
 
-		patterns[patternKey](data);
+		// Execute the pattern code string
+		if (patterns[patternKey]) {
+			eval(patterns[patternKey]);
+		}
 	}
 
 	// draw the frame
@@ -169,6 +111,19 @@ function main() {
 }
 
 patternSelect.onchange = () => {
+	const selectedPattern = patternSelect.value;
+
+	// Load the selected pattern into the textarea (except for custom)
+	if (selectedPattern !== "custom") {
+		const patternKey =
+			selectedPattern === "primary" ? PRIMARY_PATTERN : selectedPattern;
+		if (patterns[patternKey]) {
+			customTextarea.value = patterns[patternKey];
+		} else {
+			customTextarea.value = DEFAULT_CUSTOM_PATTERN;
+		}
+	}
+
 	main();
 };
 
