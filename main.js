@@ -64,19 +64,21 @@ async function loadPatterns() {
 		}
 	}
 
-	// Add pattern options to select
-	PATTERN_LIST.slice()
-		.reverse()
-		.forEach((pattern) => {
-			const option = document.createElement("option");
-			option.value = pattern;
-			option.innerHTML = pattern;
-			patternSelect.appendChild(option);
-		});
+	// Add pattern options to select (already sorted newest to oldest in PATTERN_LIST)
+	PATTERN_LIST.forEach((pattern) => {
+		const option = document.createElement("option");
+		option.value = pattern;
+		option.innerHTML = pattern;
+		patternSelect.appendChild(option);
+	});
 
-	// Set initial pattern text if primary pattern is selected
-	if (patternSelect.value === "primary" && patterns[PRIMARY_PATTERN]) {
+	// Auto-select the PRIMARY_PATTERN if it exists, otherwise first pattern
+	if (patterns[PRIMARY_PATTERN]) {
+		patternSelect.value = PRIMARY_PATTERN;
 		customTextarea.value = patterns[PRIMARY_PATTERN];
+	} else if (PATTERN_LIST.length > 0 && patterns[PATTERN_LIST[0]]) {
+		patternSelect.value = PATTERN_LIST[0];
+		customTextarea.value = patterns[PATTERN_LIST[0]];
 	}
 }
 
@@ -97,12 +99,9 @@ function main() {
 		const customPatternStr = customTextarea.value;
 		eval(customPatternStr);
 	} else {
-		const patternKey =
-			selectedPattern == "primary" ? PRIMARY_PATTERN : selectedPattern;
-
 		// Execute the pattern code string
-		if (patterns[patternKey]) {
-			eval(patterns[patternKey]);
+		if (patterns[selectedPattern]) {
+			eval(patterns[selectedPattern]);
 		}
 	}
 
@@ -115,10 +114,8 @@ patternSelect.onchange = () => {
 
 	// Load the selected pattern into the textarea (except for custom)
 	if (selectedPattern !== "custom") {
-		const patternKey =
-			selectedPattern === "primary" ? PRIMARY_PATTERN : selectedPattern;
-		if (patterns[patternKey]) {
-			customTextarea.value = patterns[patternKey];
+		if (patterns[selectedPattern]) {
+			customTextarea.value = patterns[selectedPattern];
 		} else {
 			customTextarea.value = DEFAULT_CUSTOM_PATTERN;
 		}
