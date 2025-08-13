@@ -131,6 +131,92 @@ drawButton.addEventListener("click", () => {
 	main();
 });
 
+// Camera interaction API - you implement these!
+let onZoom = (deltaPercent, canvasX, canvasY) => {
+	console.log(
+		`Zoom: ${deltaPercent > 0 ? "+" : ""}${deltaPercent}% at (${canvasX}, ${canvasY})`,
+	);
+};
+
+let onPanStart = (canvasX, canvasY) => {
+	console.log(`Pan start at (${canvasX}, ${canvasY})`);
+};
+
+let onPanMove = (deltaX, deltaY) => {
+	console.log(`Pan move by (${deltaX}, ${deltaY})`);
+};
+
+let onPanEnd = () => {
+	console.log("Pan end");
+};
+
+// Mouse wheel for zooming
+canvas.addEventListener("wheel", (e) => {
+	e.preventDefault();
+
+	const rect = canvas.getBoundingClientRect();
+	const canvasX = e.clientX - rect.left;
+	const canvasY = e.clientY - rect.top;
+
+	// Convert wheel delta to zoom percentage (adjust sensitivity as needed)
+	const zoomPercent = e.deltaY > 0 ? -10 : 10;
+
+	onZoom(zoomPercent, canvasX, canvasY);
+});
+
+// Mouse drag for panning
+let isPanning = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
+
+canvas.addEventListener("mousedown", (e) => {
+	if (e.button === 0) {
+		// Left mouse button
+		isPanning = true;
+		const rect = canvas.getBoundingClientRect();
+		lastMouseX = e.clientX - rect.left;
+		lastMouseY = e.clientY - rect.top;
+		canvas.style.cursor = "grabbing";
+
+		onPanStart(lastMouseX, lastMouseY);
+	}
+});
+
+canvas.addEventListener("mousemove", (e) => {
+	if (isPanning) {
+		const rect = canvas.getBoundingClientRect();
+		const currentX = e.clientX - rect.left;
+		const currentY = e.clientY - rect.top;
+
+		const deltaX = currentX - lastMouseX;
+		const deltaY = currentY - lastMouseY;
+
+		onPanMove(deltaX, deltaY);
+
+		lastMouseX = currentX;
+		lastMouseY = currentY;
+	}
+});
+
+canvas.addEventListener("mouseup", (e) => {
+	if (e.button === 0 && isPanning) {
+		isPanning = false;
+		canvas.style.cursor = "grab";
+		onPanEnd();
+	}
+});
+
+canvas.addEventListener("mouseleave", () => {
+	if (isPanning) {
+		isPanning = false;
+		canvas.style.cursor = "grab";
+		onPanEnd();
+	}
+});
+
+// Set initial cursor
+canvas.style.cursor = "grab";
+
 // Initialize patterns and start
 loadPatterns().then(() => {
 	main();
