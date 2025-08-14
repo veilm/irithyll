@@ -201,7 +201,7 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseup", (e) => {
 	if (e.button === 0 && isPanning) {
 		isPanning = false;
-		canvas.style.cursor = "grab";
+		canvas.style.cursor = "default";
 		onPanEnd();
 	}
 });
@@ -209,13 +209,10 @@ canvas.addEventListener("mouseup", (e) => {
 canvas.addEventListener("mouseleave", () => {
 	if (isPanning) {
 		isPanning = false;
-		canvas.style.cursor = "grab";
+		canvas.style.cursor = "default";
 		onPanEnd();
 	}
 });
-
-// Set initial cursor
-canvas.style.cursor = "grab";
 
 // Initialize patterns and start
 loadPatterns().then(() => {
