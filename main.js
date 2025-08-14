@@ -249,8 +249,9 @@ function animateCursor() {
 animateCursor();
 
 // Add hover effects for interactive elements
+// 1755190491 exclude canvas because it's too significant and would make this a default
 const hoverElements = document.querySelectorAll(
-	"a, button, select, textarea, canvas",
+	"a, button, select, textarea",
 );
 
 hoverElements.forEach((element) => {
