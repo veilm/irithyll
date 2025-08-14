@@ -176,7 +176,6 @@ canvas.addEventListener("mousedown", (e) => {
 		const rect = canvas.getBoundingClientRect();
 		lastMouseX = e.clientX - rect.left;
 		lastMouseY = e.clientY - rect.top;
-		canvas.style.cursor = "grabbing";
 
 		onPanStart(lastMouseX, lastMouseY);
 	}
@@ -201,7 +200,6 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseup", (e) => {
 	if (e.button === 0 && isPanning) {
 		isPanning = false;
-		canvas.style.cursor = "default";
 		onPanEnd();
 	}
 });
@@ -209,7 +207,6 @@ canvas.addEventListener("mouseup", (e) => {
 canvas.addEventListener("mouseleave", () => {
 	if (isPanning) {
 		isPanning = false;
-		canvas.style.cursor = "default";
 		onPanEnd();
 	}
 });
@@ -217,4 +214,71 @@ canvas.addEventListener("mouseleave", () => {
 // Initialize patterns and start
 loadPatterns().then(() => {
 	main();
+});
+
+// Custom Cursor Implementation
+const cursorDot = document.querySelector(".cursor-dot");
+const cursorOutline = document.querySelector(".cursor-outline");
+
+let cursorX = 0;
+let cursorY = 0;
+let outlineX = 0;
+let outlineY = 0;
+
+// Track mouse position
+document.addEventListener("mousemove", (e) => {
+	cursorX = e.clientX;
+	cursorY = e.clientY;
+
+	// Immediate update for dot
+	cursorDot.style.left = cursorX + "px";
+	cursorDot.style.top = cursorY + "px";
+});
+
+// Smooth animation for outline
+function animateCursor() {
+	// Smooth follow effect for outline
+	outlineX += (cursorX - outlineX) * 0.15;
+	outlineY += (cursorY - outlineY) * 0.15;
+
+	cursorOutline.style.left = outlineX + "px";
+	cursorOutline.style.top = outlineY + "px";
+
+	requestAnimationFrame(animateCursor);
+}
+animateCursor();
+
+// Add hover effects for interactive elements
+const hoverElements = document.querySelectorAll(
+	"a, button, select, textarea, canvas",
+);
+
+hoverElements.forEach((element) => {
+	element.addEventListener("mouseenter", () => {
+		document.body.classList.add("cursor-hover");
+	});
+
+	element.addEventListener("mouseleave", () => {
+		document.body.classList.remove("cursor-hover");
+	});
+});
+
+// Click effects
+document.addEventListener("mousedown", () => {
+	document.body.classList.add("cursor-click");
+});
+
+document.addEventListener("mouseup", () => {
+	document.body.classList.remove("cursor-click");
+});
+
+// Hide cursor when it leaves the window
+document.addEventListener("mouseleave", () => {
+	cursorDot.style.opacity = "0";
+	cursorOutline.style.opacity = "0";
+});
+
+document.addEventListener("mouseenter", () => {
+	cursorDot.style.opacity = "1";
+	cursorOutline.style.opacity = "1";
 });

@@ -338,3 +338,77 @@ select:focus {
 		transform: translateY(0);
 	}
 }
+
+/* Custom Cursor Styles */
+* {
+	cursor: none !important;
+}
+
+.cursor-dot {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 8px;
+	height: 8px;
+	background-color: #e5322e;
+	border-radius: 50%;
+	pointer-events: none;
+	z-index: 9999;
+	transform: translate(-50%, -50%);
+	transition:
+		transform 0.1s ease,
+		opacity 0.2s ease;
+	mix-blend-mode: screen;
+}
+
+.cursor-outline {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 30px;
+	height: 30px;
+	border: 2px solid rgba(229, 50, 46, 0.5);
+	border-radius: 50%;
+	pointer-events: none;
+	z-index: 9998;
+	transform: translate(-50%, -50%);
+	transition: all 0.15s ease;
+	animation: cursorPulse 2s infinite;
+}
+
+@keyframes cursorPulse {
+	0% {
+		transform: translate(-50%, -50%) scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: translate(-50%, -50%) scale(1.2);
+		opacity: 0.5;
+	}
+	100% {
+		transform: translate(-50%, -50%) scale(1);
+		opacity: 1;
+	}
+}
+
+/* Hover states for cursor */
+.cursor-hover .cursor-dot {
+	transform: translate(-50%, -50%) scale(1.5);
+	background-color: #ff4a46;
+}
+
+.cursor-hover .cursor-outline {
+	width: 50px;
+	height: 50px;
+	border-color: rgba(229, 50, 46, 0.8);
+	animation: none;
+}
+
+/* Click state */
+.cursor-click .cursor-dot {
+	transform: translate(-50%, -50%) scale(0.5);
+}
+
+.cursor-click .cursor-outline {
+	transform: translate(-50%, -50%) scale(0.8);
+}
