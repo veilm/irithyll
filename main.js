@@ -25,6 +25,10 @@ for (let x = -100; x <= 100; x += 10) {
 }
 for (let x = -50; x <= 50; x += 10) {
 	if (!reality[x]) reality[x] = {};
+	reality[x][25] = 1;
+}
+for (let x = -50; x <= 50; x += 10) {
+	if (!reality[x]) reality[x] = {};
 	reality[x][50] = 1;
 }
 
@@ -196,17 +200,18 @@ function displayIllusion() {
 
 			// console.log(displayX, displayY);
 
-			displayX += displayWindow.center.x;
-			displayY += displayWindow.center.y;
-
-			displayY *= -1;
+			displayX -= displayWindow.center.x * displayWindow.scale.x;
+			displayY -= displayWindow.center.y * displayWindow.scale.y;
 
 			// At this point, displayX and displayY are correct assuming the
 			// canvas is a cartesian plane with 0,0 in the center vertically and horizontally
 			// so if our real input is "0,0" we want to actually draw "CANVAS_WIDTH/2, CANVAS_HEIGHT/2"
 
+			// if our real input was "100, 200" then that means we want center -> 100 right -> 200 up
+			// that would be CANVAS_WIDTH/2, CANVAS_HEIGHT/2 -> x += 100 -> y -= 200
+
 			displayX += CANVAS_WIDTH / 2;
-			displayY += CANVAS_HEIGHT / 2;
+			displayY = CANVAS_HEIGHT / 2 - displayY;
 
 			setPixel(data, displayX, displayY, reality[x][y]);
 			setPixel(data, displayX + 1, displayY + 1, reality[x][y]);
@@ -281,8 +286,8 @@ let onPanMove = (deltaX, deltaY) => {
 
 	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
 
-	config.displayWindow.center.x += deltaX;
-	config.displayWindow.center.y += deltaY;
+	config.displayWindow.center.x -= deltaX / config.displayWindow.scale.x;
+	config.displayWindow.center.y -= deltaY / config.displayWindow.scale.y;
 	displayIllusion();
 };
 
