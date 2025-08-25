@@ -14,6 +14,14 @@ const ctx = canvas.getContext("2d");
 // Will store loaded pattern code
 const patterns = {};
 
+// Reality: Internal ground truth
+// Display: The window the user sees into the world
+const reality = {};
+for (let x = -100; x <= 100; x += 10) {
+	if (!reality[x]) reality[x] = {};
+	reality[x][0] = 1;
+}
+
 // data: always pass
 // x: from 0 (left) to CANVAS_WIDTH (right)
 // y: from 0 (bottom) to CANVAS_HEIGHT (top)
@@ -91,6 +99,76 @@ function clearScreen(data) {
 	for (let y = 0; y < CANVAS_HEIGHT; y++) {
 		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y, false);
 	}
+}
+
+function autoComputeDisplayWindow() {
+	const displayWindow = {};
+
+	let minX = Infinity;
+	let maxX = -Infinity;
+
+	let minY = Infinity;
+	let maxY = -Infinity;
+
+	for (const xStr of Object.keys(reality)) {
+		const x = Number(xStr);
+		if (x > maxX) maxX = x;
+		if (x < minX) minX = x;
+
+		for (const yStr of Object.keys(reality[x])) {
+			const y = Number(yStr);
+			if (y > maxY) maxY = y;
+			if (y < minY) minY = y;
+		}
+	}
+
+	const rangeX = maxX - minX;
+	const rangeY = maxY - minY;
+
+	displayWindow.center = {
+		x: (maxX + minX) / 2,
+		y: (maxY + minY) / 2,
+	};
+
+	console.log(`X goes from ${minX} to ${maxX} which is a range ${rangeX}`);
+	console.log(`Y goes from ${minY} to ${maxY} which is a range ${rangeY}`);
+
+	/*
+	CANVAS_WIDTH/rangeX = CANVAS_HEIGHT/n
+	n = CANVAS_HEIGHT/CANVAS_WIDTH * rangeX
+
+	CANVAS_HEIGHT/rangeY = CANVAS_WIDTH/n
+	n = CANVAS_WIDTH/CANVAS_HEIGHT * rangeY
+	*/
+	const rangeXAdjustedHeight = (CANVAS_HEIGHT / CANVAS_WIDTH) * rangeX;
+	const rangeYAdjustedWidth = (CANVAS_WIDTH / CANVAS_HEIGHT) * rangeY;
+
+	console.log(
+		`if we scaled so canvas width (${CANVAS_WIDTH}) -> ${rangeX}, then canvas height (${CANVAS_HEIGHT}) -> ${rangeXAdjustedHeight}`,
+	);
+	console.log(
+		`if we scaled so canvas height (${CANVAS_HEIGHT}) -> ${rangeY}, then canvas width (${CANVAS_WIDTH}) -> ${rangeYAdjustedWidth}`,
+	);
+
+	if (rangeXAdjustedHeight >= rangeY) {
+		console.log(`${rangeX}x${rangeXAdjustedHeight} fits the rangeY ${rangeY}`);
+		displayWindow.realWidth = rangeX;
+		displayWindow.realHeight = rangeXAdjustedHeight;
+	}
+	if (rangeYAdjustedWidth >= rangeX) {
+		console.log(`${rangeYAdjustedWidth}x${rangeY} fits the rangeX ${rangeX}`);
+		displayWindow.realWidth = rangeYAdjustedWidth;
+		displayWindow.realHeight = rangeY;
+	}
+
+	// reality * scale = display
+	// scale = display/reality
+	displayWindow.scale = {
+		x: CANVAS_WIDTH / displayWindow.realWidth,
+		y: CANVAS_HEIGHT / displayWindow.realHeight,
+	};
+
+	console.log("final displayWindow", displayWindow);
 }
 
 function main() {
@@ -250,9 +328,7 @@ animateCursor();
 
 // Add hover effects for interactive elements
 // 1755190491 exclude canvas because it's too significant and would make this a default
-const hoverElements = document.querySelectorAll(
-	"a, button, select, textarea",
-);
+const hoverElements = document.querySelectorAll("a, button, select, textarea");
 
 hoverElements.forEach((element) => {
 	element.addEventListener("mouseenter", () => {
