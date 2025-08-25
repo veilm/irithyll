@@ -11,6 +11,8 @@ canvas.height = CANVAS_HEIGHT;
 
 const ctx = canvas.getContext("2d");
 
+const config = {};
+
 // Will store loaded pattern code
 const patterns = {};
 
@@ -20,6 +22,10 @@ const reality = {};
 for (let x = -100; x <= 100; x += 10) {
 	if (!reality[x]) reality[x] = {};
 	reality[x][0] = 1;
+}
+for (let x = -50; x <= 50; x += 10) {
+	if (!reality[x]) reality[x] = {};
+	reality[x][50] = 1;
 }
 
 // data: always pass in direct JS form
@@ -164,6 +170,7 @@ function autoComputeDisplayWindow() {
 		y: CANVAS_HEIGHT / displayWindow.realHeight,
 	};
 
+	console.log("final displayWindow", displayWindow);
 	return displayWindow;
 }
 
@@ -172,8 +179,8 @@ function displayIllusion() {
 	const data = frame.data;
 	clearScreen(data);
 
-	const displayWindow = autoComputeDisplayWindow();
-	console.log("displayWindow", displayWindow);
+	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+	const displayWindow = config.displayWindow;
 
 	for (const xStr of Object.keys(reality)) {
 		const x = Number(xStr);
@@ -181,10 +188,18 @@ function displayIllusion() {
 		for (const yStr of Object.keys(reality[x])) {
 			const y = Number(yStr);
 
-			let displayX = x * displayWindow.scale.x;
-			let displayY = y * displayWindow.scale.y;
+			let displayX = x;
+			let displayY = y;
 
-			console.log(displayX, displayY);
+			displayX *= displayWindow.scale.x;
+			displayY *= displayWindow.scale.y;
+
+			// console.log(displayX, displayY);
+
+			displayX += displayWindow.center.x;
+			displayY += displayWindow.center.y;
+
+			displayY *= -1;
 
 			// At this point, displayX and displayY are correct assuming the
 			// canvas is a cartesian plane with 0,0 in the center vertically and horizontally
@@ -242,22 +257,37 @@ drawButton.addEventListener("click", () => {
 });
 
 // Camera interaction API - you implement these!
-let onZoom = (deltaPercent, canvasX, canvasY) => {
-	console.log(
-		`Zoom: ${deltaPercent > 0 ? "+" : ""}${deltaPercent}% at (${canvasX}, ${canvasY})`,
-	);
+let onZoom = (deltaFrac, canvasX, canvasY) => {
+	// console.log(
+	// 	`Zoom: ${deltaFrac} at (${canvasX}, ${canvasY})`,
+	// );
+
+	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+
+	config.displayWindow.scale.x *= 1 + deltaFrac;
+	config.displayWindow.scale.y *= 1 + deltaFrac;
+	displayIllusion();
 };
 
 let onPanStart = (canvasX, canvasY) => {
-	console.log(`Pan start at (${canvasX}, ${canvasY})`);
+	// console.log(`Pan start at (${canvasX}, ${canvasY})`);
 };
 
 let onPanMove = (deltaX, deltaY) => {
-	console.log(`Pan move by (${deltaX}, ${deltaY})`);
+	deltaY *= -1;
+	// now it's cartesian
+
+	// console.log(`Pan move by (${deltaX}, ${deltaY})`);
+
+	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+
+	config.displayWindow.center.x += deltaX;
+	config.displayWindow.center.y += deltaY;
+	displayIllusion();
 };
 
 let onPanEnd = () => {
-	console.log("Pan end");
+	// console.log("Pan end");
 };
 
 // Mouse wheel for zooming
@@ -269,9 +299,9 @@ canvas.addEventListener("wheel", (e) => {
 	const canvasY = e.clientY - rect.top;
 
 	// Convert wheel delta to zoom percentage (adjust sensitivity as needed)
-	const zoomPercent = e.deltaY > 0 ? -10 : 10;
+	const zoomFrac = e.deltaY > 0 ? -0.1 : 0.1;
 
-	onZoom(zoomPercent, canvasX, canvasY);
+	onZoom(zoomFrac, canvasX, canvasY);
 });
 
 // Mouse drag for panning
