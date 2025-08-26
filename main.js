@@ -16,7 +16,7 @@ const config = {
 		x: 0,
 		y: 200,
 	},
-	scale: 1,
+	scale: 0.5,
 };
 
 // Will store loaded pattern code
@@ -118,6 +118,21 @@ function clearScreen(data) {
 	}
 }
 
+// JS(0,0) is the top left so should be Cart(-CANVAS_WIDTH/2, CANVAS_HEIGHT/2)
+// JS(100,200) is the top left, then 100 right, 200 down. so should be Cart(-CANVAS_WIDTH/2 + 100, CANVAS_HEIGHT/2 - 200)
+function computeRealX(displayX) {
+	let realX = displayX - CANVAS_WIDTH / 2;
+	realX *= 1 / config.scale;
+	realX += config.center.x;
+	return realX;
+}
+function computeRealY(displayY) {
+	let realY = -displayY + CANVAS_HEIGHT / 2;
+	realY *= 1 / config.scale;
+	realY += config.center.y;
+	return realY;
+}
+
 function displayIllusion2() {
 	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
 	const data = frame.data;
@@ -128,28 +143,26 @@ function displayIllusion2() {
 	// const center = {x: 0, y: 0}
 
 	const startX = -CANVAS_WIDTH / 2;
-	const endX = CANVAS_WIDTH / 2;
 	const startY = -CANVAS_HEIGHT / 2;
+	const endX = CANVAS_WIDTH / 2;
 	const endY = CANVAS_HEIGHT / 2;
+
+	const realStartX = computeRealX(0);
+	const realStartY = computeRealY(CANVAS_HEIGHT);
+	const realEndX = computeRealX(CANVAS_WIDTH);
+	const realEndY = computeRealY(0);
+	const realRangeX = realEndX - realStartX;
+	const realRangeY = realEndY - realStartY;
+
+	const BRIGHTNESS_DRIFT = 5;
+	const adjustedBrightnessDrift =
+		(realRangeY / CANVAS_HEIGHT) * BRIGHTNESS_DRIFT;
+	console.log(adjustedBrightnessDrift);
 
 	for (let displayX = 0; displayX <= CANVAS_WIDTH; displayX++) {
 		for (let displayY = 0; displayY <= CANVAS_HEIGHT; displayY++) {
-			// JS(0,0) is the top left so should be Cart(-CANVAS_WIDTH/2, CANVAS_HEIGHT/2)
-			// JS(100,200) is the top left, then 100 right, 200 down. so should be Cart(-CANVAS_WIDTH/2 + 100, CANVAS_HEIGHT/2 - 200)
-
-			let realX = displayX - CANVAS_WIDTH / 2;
-			let realY = -displayY + CANVAS_HEIGHT / 2;
-
-			realX += config.center.x;
-			realY += config.center.y;
-
-			if (realX < startX || realX > endX || realY < startY || realY > endY)
-				continue;
-
-			// if (displayX % 10 == 0 && displayY % 10 == 0)
-			// 	console.log(`${displayX},${displayY} -> ${realX},${realY}`)
-			// if (displayX == 0)
-			// 	console.log(`${displayX},${displayY} -> ${realX},${realY}`)
+			const realX = computeRealX(displayX);
+			const realY = computeRealY(displayY);
 
 			const labelY = func(realX);
 			const diffY = Math.abs(labelY - realY);
@@ -159,10 +172,16 @@ function displayIllusion2() {
 			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 1;
 			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 10;
 			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 40;
-
 			// const brightness = diffY <= 20 ? 1 - diffY/20 : 0;
 			// const brightness = diffY <= 3 ? 1 - diffY/5 : 0;
-			const brightness = diffY <= 5 ? 1 - diffY / 5 : 0;
+			// const brightness = diffY <= 5 ? 1 - diffY / 5 : 0;
+
+			// 1080 => 5
+			// realRangeY => realRangeY/1080 * 5
+			const brightness =
+				diffY <= adjustedBrightnessDrift
+					? 1 - diffY / adjustedBrightnessDrift
+					: 0;
 
 			setPixel(data, displayX, displayY, brightness);
 		}
@@ -221,6 +240,8 @@ let onZoom = (deltaFrac, canvasX, canvasY) => {
 	// config.displayWindow.scale.y *= 1 + deltaFrac;
 	// displayIllusion();
 
+	config.scale *= 1 + deltaFrac;
+
 	displayIllusion2();
 };
 
@@ -239,8 +260,11 @@ let onPanMove = (deltaX, deltaY) => {
 	// config.displayWindow.center.y -= deltaY / config.displayWindow.scale.y;
 	// displayIllusion();
 
-	config.center.x -= deltaX;
-	config.center.y -= deltaY;
+	// config.center.x -= deltaX;
+	// config.center.y -= deltaY;
+
+	config.center.x -= deltaX / config.scale;
+	config.center.y -= deltaY / config.scale;
 
 	displayIllusion2();
 };
