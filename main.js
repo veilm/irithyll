@@ -11,30 +11,37 @@ canvas.height = CANVAS_HEIGHT;
 
 const ctx = canvas.getContext("2d");
 
-const config = {};
+const config = {
+	center: {
+		x: 0,
+		y: 200,
+	},
+	scale: 1,
+};
 
 // Will store loaded pattern code
 const patterns = {};
 
 // Reality: Internal ground truth
 // Display: The window the user sees into the world
-const reality = {};
-for (let x = -100; x <= 100; x += 10) {
-	if (!reality[x]) reality[x] = {};
-	reality[x][0] = 1;
-}
-for (let x = -50; x <= 50; x += 10) {
-	if (!reality[x]) reality[x] = {};
-	reality[x][25] = 1;
-}
-for (let x = -50; x <= 50; x += 10) {
-	if (!reality[x]) reality[x] = {};
-	reality[x][50] = 1;
-}
+// const reality = {};
+// for (let x = -100; x <= 100; x += 10) {
+// 	if (!reality[x]) reality[x] = {};
+// 	reality[x][0] = 1;
+// }
+// for (let x = -50; x <= 50; x += 10) {
+// 	if (!reality[x]) reality[x] = {};
+// 	reality[x][25] = 1;
+// }
+// for (let x = -50; x <= 50; x += 10) {
+// 	if (!reality[x]) reality[x] = {};
+// 	reality[x][50] = 1;
+// }
 
 // const myfuncX => t => t;
 // const myFuncY = t => t * t;
-const myFuncY = (x) => (x * x) / 1000 - 200;
+// const myFuncY = (x) => (x * x) / 1000 - 200;
+const myFuncY = (x) => (x == 0 ? 200 : (x * x) / 1000 - 200);
 
 // data: always pass in direct JS form
 // x: from 0 (left) to CANVAS_WIDTH (right)
@@ -111,122 +118,6 @@ function clearScreen(data) {
 	}
 }
 
-function autoComputeDisplayWindow() {
-	const displayWindow = {};
-
-	let minX = Infinity;
-	let maxX = -Infinity;
-
-	let minY = Infinity;
-	let maxY = -Infinity;
-
-	for (const xStr of Object.keys(reality)) {
-		const x = Number(xStr);
-		if (x > maxX) maxX = x;
-		if (x < minX) minX = x;
-
-		for (const yStr of Object.keys(reality[x])) {
-			const y = Number(yStr);
-			if (y > maxY) maxY = y;
-			if (y < minY) minY = y;
-		}
-	}
-
-	const rangeX = maxX - minX;
-	const rangeY = maxY - minY;
-
-	displayWindow.center = {
-		x: (maxX + minX) / 2,
-		y: (maxY + minY) / 2,
-	};
-
-	console.log(`X goes from ${minX} to ${maxX} which is a range ${rangeX}`);
-	console.log(`Y goes from ${minY} to ${maxY} which is a range ${rangeY}`);
-
-	/*
-	CANVAS_WIDTH/rangeX = CANVAS_HEIGHT/n
-	n = CANVAS_HEIGHT/CANVAS_WIDTH * rangeX
-
-	CANVAS_HEIGHT/rangeY = CANVAS_WIDTH/n
-	n = CANVAS_WIDTH/CANVAS_HEIGHT * rangeY
-	*/
-	const rangeXAdjustedHeight = (CANVAS_HEIGHT / CANVAS_WIDTH) * rangeX;
-	const rangeYAdjustedWidth = (CANVAS_WIDTH / CANVAS_HEIGHT) * rangeY;
-
-	console.log(
-		`if we scaled so canvas width (${CANVAS_WIDTH}) -> ${rangeX}, then canvas height (${CANVAS_HEIGHT}) -> ${rangeXAdjustedHeight}`,
-	);
-	console.log(
-		`if we scaled so canvas height (${CANVAS_HEIGHT}) -> ${rangeY}, then canvas width (${CANVAS_WIDTH}) -> ${rangeYAdjustedWidth}`,
-	);
-
-	if (rangeXAdjustedHeight >= rangeY) {
-		console.log(`${rangeX}x${rangeXAdjustedHeight} fits the rangeY ${rangeY}`);
-		displayWindow.realWidth = rangeX;
-		displayWindow.realHeight = rangeXAdjustedHeight;
-	}
-	if (rangeYAdjustedWidth >= rangeX) {
-		console.log(`${rangeYAdjustedWidth}x${rangeY} fits the rangeX ${rangeX}`);
-		displayWindow.realWidth = rangeYAdjustedWidth;
-		displayWindow.realHeight = rangeY;
-	}
-
-	// reality * scale = display
-	// scale = display/reality
-	displayWindow.scale = {
-		x: CANVAS_WIDTH / displayWindow.realWidth,
-		y: CANVAS_HEIGHT / displayWindow.realHeight,
-	};
-
-	console.log("final displayWindow", displayWindow);
-	return displayWindow;
-}
-
-function displayIllusion() {
-	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
-	const data = frame.data;
-	clearScreen(data);
-
-	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
-	const displayWindow = config.displayWindow;
-
-	for (const xStr of Object.keys(reality)) {
-		const x = Number(xStr);
-
-		for (const yStr of Object.keys(reality[x])) {
-			const y = Number(yStr);
-
-			let displayX = x;
-			let displayY = y;
-
-			displayX *= displayWindow.scale.x;
-			displayY *= displayWindow.scale.y;
-
-			// console.log(displayX, displayY);
-
-			displayX -= displayWindow.center.x * displayWindow.scale.x;
-			displayY -= displayWindow.center.y * displayWindow.scale.y;
-
-			// At this point, displayX and displayY are correct assuming the
-			// canvas is a cartesian plane with 0,0 in the center vertically and horizontally
-			// so if our real input is "0,0" we want to actually draw "CANVAS_WIDTH/2, CANVAS_HEIGHT/2"
-
-			// if our real input was "100, 200" then that means we want center -> 100 right -> 200 up
-			// that would be CANVAS_WIDTH/2, CANVAS_HEIGHT/2 -> x += 100 -> y -= 200
-
-			displayX += CANVAS_WIDTH / 2;
-			displayY = CANVAS_HEIGHT / 2 - displayY;
-
-			setPixel(data, displayX, displayY, reality[x][y]);
-			setPixel(data, displayX + 1, displayY + 1, reality[x][y]);
-			setPixel(data, displayX - 1, displayY - 1, reality[x][y]);
-		}
-	}
-
-	// draw the frame
-	ctx.putImageData(frame, 0, 0);
-}
-
 function displayIllusion2() {
 	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
 	const data = frame.data;
@@ -246,8 +137,11 @@ function displayIllusion2() {
 			// JS(0,0) is the top left so should be Cart(-CANVAS_WIDTH/2, CANVAS_HEIGHT/2)
 			// JS(100,200) is the top left, then 100 right, 200 down. so should be Cart(-CANVAS_WIDTH/2 + 100, CANVAS_HEIGHT/2 - 200)
 
-			const realX = displayX - CANVAS_WIDTH / 2;
-			const realY = -displayY + CANVAS_HEIGHT / 2;
+			let realX = displayX - CANVAS_WIDTH / 2;
+			let realY = -displayY + CANVAS_HEIGHT / 2;
+
+			realX += config.center.x;
+			realY += config.center.y;
 
 			if (realX < startX || realX > endX || realY < startY || realY > endY)
 				continue;
@@ -344,6 +238,9 @@ let onPanMove = (deltaX, deltaY) => {
 	// config.displayWindow.center.x -= deltaX / config.displayWindow.scale.x;
 	// config.displayWindow.center.y -= deltaY / config.displayWindow.scale.y;
 	// displayIllusion();
+
+	config.center.x -= deltaX;
+	config.center.y -= deltaY;
 
 	displayIllusion2();
 };
