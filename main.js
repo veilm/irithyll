@@ -32,6 +32,10 @@ for (let x = -50; x <= 50; x += 10) {
 	reality[x][50] = 1;
 }
 
+// const myfuncX => t => t;
+// const myFuncY = t => t * t;
+const myFuncY = (x) => (x * x) / 1000 - 200;
+
 // data: always pass in direct JS form
 // x: from 0 (left) to CANVAS_WIDTH (right)
 // y: from 0 (top) to CANVAS_HEIGHT (bottom)
@@ -216,6 +220,51 @@ function displayIllusion() {
 			setPixel(data, displayX, displayY, reality[x][y]);
 			setPixel(data, displayX + 1, displayY + 1, reality[x][y]);
 			setPixel(data, displayX - 1, displayY - 1, reality[x][y]);
+		}
+	}
+
+	// draw the frame
+	ctx.putImageData(frame, 0, 0);
+}
+
+function displayIllusion2() {
+	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
+	const data = frame.data;
+
+	clearScreen(data);
+
+	const func = myFuncY;
+	// const center = {x: 0, y: 0}
+
+	const startX = -CANVAS_WIDTH / 2;
+	const endX = CANVAS_WIDTH / 2;
+	const startY = -CANVAS_HEIGHT / 2;
+	const endY = CANVAS_HEIGHT / 2;
+
+	for (let displayX = 0; displayX <= CANVAS_WIDTH; displayX++) {
+		for (let displayY = 0; displayY <= CANVAS_HEIGHT; displayY++) {
+			// JS(0,0) is the top left so should be Cart(-CANVAS_WIDTH/2, CANVAS_HEIGHT/2)
+			// JS(100,200) is the top left, then 100 right, 200 down. so should be Cart(-CANVAS_WIDTH/2 + 100, CANVAS_HEIGHT/2 - 200)
+
+			const realX = displayX - CANVAS_WIDTH / 2;
+			const realY = -displayY + CANVAS_HEIGHT / 2;
+
+			if (realX < startX || realX > endX || realY < startY || realY > endY)
+				continue;
+
+			// if (displayX % 10 == 0 && displayY % 10 == 0)
+			// 	console.log(`${displayX},${displayY} -> ${realX},${realY}`)
+			// if (displayX == 0)
+			// 	console.log(`${displayX},${displayY} -> ${realX},${realY}`)
+
+			const labelY = func(realX);
+			const diffY = Math.abs(labelY - realY);
+
+			// diff 0 => 1 brightness
+			// diff CANVAS_HEIGHT => 0 brightness
+			const brightness = 1 - diffY / CANVAS_HEIGHT;
+
+			setPixel(data, displayX, displayY, brightness);
 		}
 	}
 
