@@ -235,13 +235,69 @@ let onZoom = (deltaFrac, canvasX, canvasY) => {
 	// 	`Zoom: ${deltaFrac} at (${canvasX}, ${canvasY})`,
 	// );
 
-	// if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
-	// config.displayWindow.scale.x *= 1 + deltaFrac;
-	// config.displayWindow.scale.y *= 1 + deltaFrac;
-	// displayIllusion();
+	/*
+	Tihs means before and after the zoom, the point at canvasX,canvasY should
+	appear in the same spot
+	So basically we also have to adjust config.center accordingly
+
+	realBeforeX = canvasX - CANVAS_WIDTH / 2;
+	realBeforeX *= 1 / config.scale;
+	realBeforeX += config.center.x;
+
+	realBeforeY = -displayY + CANVAS_HEIGHT / 2;
+	realBeforeY *= 1 / config.scale;
+	realBeforeY += config.center.y;
+
+	realBeforeX = (canvasX - CANVAS_WIDTH / 2) / config.scale + config.center.x
+	realBeforeY = (CANVAS_HEIGHT/2 - displayY) / config.scale + config.center.y
+
+	newScale = config.scale * (1 + deltaFrac)
+	naiveAfterX = (canvasX - CANVAS_WIDTH / 2) / newScale + config.center.x
+	naiveAfterY = (CANVAS_HEIGHT/2 - displayY) / newScale + config.center.y
+
+	targetAfterX = realBeforeX
+	targetAfterY = realBeforeY
+
+	naiveAfterX + adjustmentX = targetAfterX
+	naiveAfterY + adjustmentY = targetAfterY
+
+	(canvasX - CANVAS_WIDTH / 2) / newScale + config.center.x + adjustmentX
+	=
+	(canvasX - CANVAS_WIDTH / 2) / config.scale + config.center.x
+
+	(canvasX - CANVAS_WIDTH / 2) / newScale + adjustmentX
+	=
+	(canvasX - CANVAS_WIDTH / 2) / config.scale
+
+	adjustmentX =
+	(canvasX - CANVAS_WIDTH / 2) / config.scale
+	-
+	(canvasX - CANVAS_WIDTH / 2) / newScale
+	=
+	(canvasX - CANVAS_WIDTH / 2)(1/config.scale - 1/newScale)
+	=
+	(canvasX - CANVAS_WIDTH / 2)(1/config.scale - 1/(config.scale * (1 + deltaFrac)))
+	=
+	(canvasX - CANVAS_WIDTH / 2)B
+
+	B = 1/config.scale - 1/(config.scale * (1 + deltaFrac))
+	B = (1+deltaFrac)/config.scale/(1+deltaFrac) - 1/(config.scale * (1 + deltaFrac))
+	B = ((1+deltaFrac)-1)/(config.scale * (1+deltaFrac))
+	B = (deltaFrac)/(config.scale * (1+deltaFrac))
+
+	so you'd think 1756187115
+	const B = deltaFrac / (1 + deltaFrac) / config.scale
+	config.center.x += (canvasX - CANVAS_WIDTH / 2) * B;
+	config.center.y += (CANVAS_HEIGHT/2 - canvasY) * B;
+	I tried this and it's not correct but vaguely matching the behaviour you
+	want...
+	*/
+
+	const B = deltaFrac / (1 + deltaFrac) / config.scale;
+	config.center.x += (canvasX - CANVAS_WIDTH / 2) * B;
+	config.center.y += (CANVAS_HEIGHT / 2 - canvasY) * B;
 
 	config.scale *= 1 + deltaFrac;
-
 	displayIllusion2();
 };
 
@@ -252,16 +308,6 @@ let onPanStart = (canvasX, canvasY) => {
 let onPanMove = (deltaX, deltaY) => {
 	deltaY *= -1;
 	// now it's cartesian
-
-	// console.log(`Pan move by (${deltaX}, ${deltaY})`);
-
-	// if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
-	// config.displayWindow.center.x -= deltaX / config.displayWindow.scale.x;
-	// config.displayWindow.center.y -= deltaY / config.displayWindow.scale.y;
-	// displayIllusion();
-
-	// config.center.x -= deltaX;
-	// config.center.y -= deltaY;
 
 	config.center.x -= deltaX / config.scale;
 	config.center.y -= deltaY / config.scale;
