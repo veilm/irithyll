@@ -262,7 +262,13 @@ function displayIllusion2() {
 
 			// diff 0 => 1 brightness
 			// diff CANVAS_HEIGHT => 0 brightness
-			const brightness = 1 - diffY / CANVAS_HEIGHT;
+			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 1;
+			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 10;
+			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 40;
+
+			// const brightness = diffY <= 20 ? 1 - diffY/20 : 0;
+			// const brightness = diffY <= 3 ? 1 - diffY/5 : 0;
+			const brightness = diffY <= 5 ? 1 - diffY / 5 : 0;
 
 			setPixel(data, displayX, displayY, brightness);
 		}
@@ -316,11 +322,12 @@ let onZoom = (deltaFrac, canvasX, canvasY) => {
 	// 	`Zoom: ${deltaFrac} at (${canvasX}, ${canvasY})`,
 	// );
 
-	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+	// if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+	// config.displayWindow.scale.x *= 1 + deltaFrac;
+	// config.displayWindow.scale.y *= 1 + deltaFrac;
+	// displayIllusion();
 
-	config.displayWindow.scale.x *= 1 + deltaFrac;
-	config.displayWindow.scale.y *= 1 + deltaFrac;
-	displayIllusion();
+	displayIllusion2();
 };
 
 let onPanStart = (canvasX, canvasY) => {
@@ -333,11 +340,12 @@ let onPanMove = (deltaX, deltaY) => {
 
 	// console.log(`Pan move by (${deltaX}, ${deltaY})`);
 
-	if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+	// if (!config.displayWindow) config.displayWindow = autoComputeDisplayWindow();
+	// config.displayWindow.center.x -= deltaX / config.displayWindow.scale.x;
+	// config.displayWindow.center.y -= deltaY / config.displayWindow.scale.y;
+	// displayIllusion();
 
-	config.displayWindow.center.x -= deltaX / config.displayWindow.scale.x;
-	config.displayWindow.center.y -= deltaY / config.displayWindow.scale.y;
-	displayIllusion();
+	displayIllusion2();
 };
 
 let onPanEnd = () => {
