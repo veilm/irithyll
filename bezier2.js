@@ -80,77 +80,34 @@
 			this.canvas = canvas;
 			this.buffer = new CanvasBuffer(canvas, options.width, options.height);
 			this.points = options.points.map(point => ({...point}));
-			this.steps = options.steps;
-			this.step = 0;
-			this.stepLabel = options.stepLabel;
-			this.stepMaxLabel = options.stepMaxLabel;
-			this.skipButton = options.skipButton;
+			this.sampleCount = options.steps ?? 0;
 			this.selectedIndex = null;
 			this.dragPointerId = null;
 
-			this.trailEnabled = false;
-			this.trailRenderedUntil = -1;
+			this.trailEnabled = true;
 
-			if (this.stepMaxLabel) this.stepMaxLabel.textContent = String(this.steps);
-			this.updateStepLabel();
-			this.updateSkipState();
 			this.attachPointerHandlers();
-			this.render(true);
-		}
-
-		nextStep() {
-			if (this.step >= this.steps) return;
-			this.step += 1;
-			this.updateStepLabel();
-			this.updateSkipState();
-			this.render();
-		}
-
-		skipToEnd() {
-			if (this.step >= this.steps) return;
-			this.step = this.steps;
-			this.updateStepLabel();
-			this.updateSkipState();
 			this.render();
 		}
 
 		setTrailEnabled(enabled) {
 			if (this.trailEnabled === enabled) return;
 			this.trailEnabled = enabled;
-			this.render(true);
+			this.render();
 		}
 
-		updateStepLabel() {
-			if (this.stepLabel) this.stepLabel.textContent = String(this.step);
-		}
+		render() {
+			this.buffer.clear();
 
-		updateSkipState() {
-			if (this.skipButton) this.skipButton.disabled = this.step >= this.steps;
-		}
+			const samples = Math.max(1, this.sampleCount);
+			const drawScaffolds = this.trailEnabled;
 
-		render(forceFullRedraw = false) {
-			const cappedStep = Math.min(this.step, this.steps);
-			const needsClear = forceFullRedraw || !this.trailEnabled;
-
-			if (needsClear) {
-				this.buffer.clear();
-				this.trailRenderedUntil = -1;
-			}
-
-			if (this.trailEnabled) {
-				const start = Math.max(0, this.trailRenderedUntil + 1);
-				for (let i = start; i <= cappedStep; i++) {
-					const t = this.steps === 0 ? 0 : i / this.steps;
-					this.drawBezierHierarchy(this.points, t);
-				}
-				this.trailRenderedUntil = Math.max(this.trailRenderedUntil, cappedStep);
-			} else {
-				const t = this.steps === 0 ? 0 : cappedStep / this.steps;
-				this.drawBezierHierarchy(this.points, t);
+			for (let i = 0; i <= samples; i++) {
+				const t = i / samples;
+				this.drawBezierHierarchy(this.points, t, drawScaffolds);
 			}
 
 			this.drawControlPoints();
-
 			this.buffer.flush();
 		}
 
@@ -163,7 +120,7 @@
 			});
 		}
 
-		drawBezierHierarchy(points, t) {
+		drawBezierHierarchy(points, t, drawScaffolds = true) {
 			if (points.length < 2) return;
 
 			const scaffolds = [];
@@ -171,23 +128,28 @@
 			for (let i = 0; i < points.length - 1; i++) {
 				const interpolated = lerpPoint(points[i], points[i + 1], t);
 				const isCurvePoint = points.length === 2;
-				const color = isCurvePoint ? COLORS.result : COLORS.scaffold;
-				const radius = isCurvePoint ? POINT_RADII.curve : POINT_RADII.scaffold;
-				this.buffer.drawCartesianPoint(interpolated.x, interpolated.y, color, radius);
+				const shouldDraw = isCurvePoint || drawScaffolds;
+				if (shouldDraw) {
+					const color = isCurvePoint ? COLORS.result : COLORS.scaffold;
+					const radius = isCurvePoint ? POINT_RADII.curve : POINT_RADII.scaffold;
+					this.buffer.drawCartesianPoint(interpolated.x, interpolated.y, color, radius);
+				}
 				scaffolds.push(interpolated);
 			}
 
 			if (scaffolds.length <= 1) return;
 
 			const innerPoints = [];
-				for (let i = 0; i < scaffolds.length - 1; i++) {
-					const inner = lerpPoint(scaffolds[i], scaffolds[i + 1], t);
+			for (let i = 0; i < scaffolds.length - 1; i++) {
+				const inner = lerpPoint(scaffolds[i], scaffolds[i + 1], t);
+				if (drawScaffolds) {
 					this.buffer.drawCartesianPoint(inner.x, inner.y, COLORS.intermediate, POINT_RADII.intermediate);
-					innerPoints.push(inner);
 				}
+				innerPoints.push(inner);
+			}
 
 			if (innerPoints.length > 1) {
-				this.drawBezierHierarchy(innerPoints, t);
+				this.drawBezierHierarchy(innerPoints, t, drawScaffolds);
 			}
 		}
 
@@ -230,7 +192,7 @@
 			point.x = cartesian.x;
 			point.y = cartesian.y;
 
-			this.render(true);
+			this.render();
 		}
 
 		handlePointerUp(event) {
@@ -243,13 +205,13 @@
 		selectPoint(index) {
 			if (this.selectedIndex === index) return;
 			this.selectedIndex = index;
-			this.render(true);
+			this.render();
 		}
 
 		clearSelection() {
 			if (this.selectedIndex === null) return;
 			this.selectedIndex = null;
-			this.render(true);
+			this.render();
 		}
 
 		getCanvasPositionFromEvent(event) {
@@ -309,39 +271,22 @@
 
 	function init() {
 		const canvas = document.getElementById("curve-canvas");
-		const stepLabel = document.getElementById("step-count");
-		const stepMaxLabel = document.getElementById("step-max");
 		const trailToggle = document.getElementById("trail-toggle");
-		const skipButton = document.getElementById("skip-button");
 
 		const visualizer = new BezierVisualizer(canvas, {
 			width: CANVAS_WIDTH,
 			height: CANVAS_HEIGHT,
 			points: CONTROL_POINTS,
 			steps: BEZIER_STEPS,
-			stepLabel,
-			stepMaxLabel,
-			skipButton,
-		});
-
-		document.addEventListener("keydown", event => {
-			if (event.key === "n") {
-				visualizer.nextStep();
-			}
 		});
 
 		if (trailToggle) {
+			visualizer.setTrailEnabled(trailToggle.checked);
 			trailToggle.addEventListener("change", event => {
 				const input = event.currentTarget;
 				if (input instanceof HTMLInputElement) {
 					visualizer.setTrailEnabled(input.checked);
 				}
-			});
-		}
-
-		if (skipButton) {
-			skipButton.addEventListener("click", () => {
-				visualizer.skipToEnd();
 			});
 		}
 	}

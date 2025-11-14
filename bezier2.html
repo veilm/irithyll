@@ -34,14 +34,7 @@
 			.hud {
 				font-size: 0.95rem;
 				color: #fceaea;
-			}
-
-			.hud code {
-				padding: 0 4px;
-				background: rgba(255, 255, 255, 0.1);
-				border-radius: 4px;
-				color: inherit;
-				font-size: 0.9rem;
+				text-align: center;
 			}
 
 			.controls {
@@ -56,34 +49,19 @@
 				align-items: center;
 				cursor: pointer;
 			}
-
-			button {
-				background: transparent;
-				border: 1px solid currentColor;
-				color: inherit;
-				padding: 6px 12px;
-				border-radius: 4px;
-				cursor: pointer;
-			}
-
-			button:disabled {
-				opacity: 0.4;
-				cursor: not-allowed;
-			}
 		</style>
 	</head>
 	<body>
 		<canvas id="curve-canvas"></canvas>
 		<div class="panel">
 			<div class="hud">
-				Step <span id="step-count">0</span> / <span id="step-max">0</span> &mdash; press <code>n</code> for next step
+				Drag the control points to reshape the curve.
 			</div>
 			<div class="controls">
 				<label>
-					<input type="checkbox" id="trail-toggle" />
-					Show trails
+					<input type="checkbox" id="trail-toggle" checked />
+					Show scaffolding trails
 				</label>
-				<button id="skip-button">Skip to final</button>
 			</div>
 		</div>
 		<script src="bezier2.js"></script>
