@@ -1,7 +1,7 @@
 (() => {
 	const CANVAS_WIDTH = 960;
 	const CANVAS_HEIGHT = 720;
-	const BEZIER_STEPS = 600;
+	const BEZIER_STEPS = 1000;
 
 	const CONTROL_POINTS = Object.freeze([
 		{x: -360, y: -60},
@@ -13,6 +13,9 @@
 	const SELECT_RADIUS = 18;
 	const DUPLICATE_OFFSET = Object.freeze({x: 20, y: 0});
 	const MIN_CONTROL_POINTS = 2;
+	const CURVE_SUPERSAMPLES = 4;
+	const CURVE_SOFT_RADIUS = 2;
+	const CURVE_SOFT_INTENSITY = 0.2;
 	const SCAFFOLD_GRADIENT = Object.freeze({
 		start: [Math.round(255 * 0.1), Math.round(255 * 0.1), Math.round(255 * 0.1)],
 		mid: [255, 255, 255],
@@ -77,6 +80,40 @@
 			}
 		}
 
+		drawSoftPoint(x, y, color, radius = 1.5, intensity = 0.5) {
+			const canvasCoords = cartesianToCanvas(x, y, this.width, this.height);
+			const centerX = canvasCoords.x;
+			const centerY = canvasCoords.y;
+			const radiusSquared = radius * radius;
+			const minX = Math.max(0, Math.floor(centerX - radius));
+			const maxX = Math.min(this.width - 1, Math.ceil(centerX + radius));
+			const minY = Math.max(0, Math.floor(centerY - radius));
+			const maxY = Math.min(this.height - 1, Math.ceil(centerY + radius));
+
+			for (let py = minY; py <= maxY; py++) {
+				const offsetY = py + 0.5 - centerY;
+				for (let px = minX; px <= maxX; px++) {
+					const offsetX = px + 0.5 - centerX;
+					const distanceSquared = offsetX * offsetX + offsetY * offsetY;
+					if (distanceSquared > radiusSquared) continue;
+					const distance = Math.sqrt(distanceSquared);
+					const falloff = 1 - distance / radius;
+					const alpha = Math.max(0, falloff) * intensity;
+					this.blendPixel(px, py, color, alpha);
+				}
+			}
+		}
+
+		blendPixel(px, py, color, alpha) {
+			if (alpha <= 0) return;
+			const offset = 4 * (py * this.width + px);
+			const invAlpha = 1 - alpha;
+			this.data[offset + 0] = Math.round(this.data[offset + 0] * invAlpha + color[0] * alpha);
+			this.data[offset + 1] = Math.round(this.data[offset + 1] * invAlpha + color[1] * alpha);
+			this.data[offset + 2] = Math.round(this.data[offset + 2] * invAlpha + color[2] * alpha);
+			this.data[offset + 3] = Math.max(this.data[offset + 3], color[3]);
+		}
+
 		flush() {
 			this.ctx.putImageData(this.frame, 0, 0);
 		}
@@ -87,7 +124,8 @@
 			this.canvas = canvas;
 			this.buffer = new CanvasBuffer(canvas, options.width, options.height);
 			this.points = options.points.map(point => ({...point}));
-			this.sampleCount = options.steps ?? 0;
+			this.sampleCount = Math.max(1, options.steps ?? 1);
+			this.curveSupersamples = Math.max(1, options.curveSupersamples ?? 1);
 			this.selectedIndex = null;
 			this.dragPointerId = null;
 			this.duplicateButton = options.duplicateButton ?? null;
@@ -125,13 +163,42 @@
 			const drawScaffolds = this.trailEnabled;
 			const totalScaffoldLevels = Math.max(1, this.points.length - 2);
 
-			for (let i = 0; i <= samples; i++) {
-				const t = i / samples;
-				this.drawBezierHierarchy(this.points, t, drawScaffolds, totalScaffoldLevels, 0);
+			if (drawScaffolds) {
+				for (let i = 0; i <= samples; i++) {
+					const t = i / samples;
+					this.drawBezierHierarchy(
+						this.points,
+						t,
+						drawScaffolds,
+						totalScaffoldLevels,
+						0,
+						false
+					);
+				}
 			}
+
+			this.drawSupersampledCurve(samples);
 
 			this.drawControlPoints();
 			this.buffer.flush();
+		}
+
+		drawSupersampledCurve(baseSamples) {
+			const supersampleMultiplier = Math.max(1, this.curveSupersamples);
+			const totalSamples = Math.max(1, baseSamples * supersampleMultiplier);
+			for (let i = 0; i <= totalSamples; i++) {
+				const t = i / totalSamples;
+				const point = evaluateBezierPoint(this.points, t);
+				if (point) {
+					this.buffer.drawSoftPoint(
+						point.x,
+						point.y,
+						COLORS.result,
+						CURVE_SOFT_RADIUS,
+						CURVE_SOFT_INTENSITY
+					);
+				}
+			}
 		}
 
 		drawControlPoints() {
@@ -143,7 +210,14 @@
 			});
 		}
 
-		drawBezierHierarchy(points, t, drawScaffolds = true, totalScaffoldLevels = 1, levelIndex = 0) {
+		drawBezierHierarchy(
+			points,
+			t,
+			drawScaffolds = true,
+			totalScaffoldLevels = 1,
+			levelIndex = 0,
+			drawCurvePoint = true
+		) {
 			if (points.length < 2) return;
 
 			const scaffolds = [];
@@ -151,7 +225,7 @@
 			for (let i = 0; i < points.length - 1; i++) {
 				const interpolated = lerpPoint(points[i], points[i + 1], t);
 				const isCurvePoint = points.length === 2;
-				const shouldDraw = isCurvePoint || drawScaffolds;
+				const shouldDraw = (isCurvePoint && drawCurvePoint) || (!isCurvePoint && drawScaffolds);
 				if (shouldDraw) {
 					const color = isCurvePoint
 						? COLORS.result
@@ -175,8 +249,10 @@
 			}
 
 			if (innerPoints.length === 1) {
-				const finalPoint = innerPoints[0];
-				this.buffer.drawCartesianPoint(finalPoint.x, finalPoint.y, COLORS.result, POINT_RADII.curve);
+				if (drawCurvePoint) {
+					const finalPoint = innerPoints[0];
+					this.buffer.drawCartesianPoint(finalPoint.x, finalPoint.y, COLORS.result, POINT_RADII.curve);
+				}
 				return;
 			}
 
@@ -186,9 +262,17 @@
 					t,
 					drawScaffolds,
 					totalScaffoldLevels,
-					levelIndex + 1
+					levelIndex + 1,
+					drawCurvePoint
 				);
 			}
+		}
+
+		setSampleCount(count) {
+			const clamped = Math.max(1, Math.floor(count));
+			if (clamped === this.sampleCount) return;
+			this.sampleCount = clamped;
+			this.render();
 		}
 
 		getScaffoldColor(levelIndex, totalLevels) {
@@ -333,6 +417,23 @@
 		};
 	}
 
+	function evaluateBezierPoint(points, t) {
+		if (!points || points.length === 0) {
+			return null;
+		}
+
+		let current = points.map(point => ({x: point.x, y: point.y}));
+		while (current.length > 1) {
+			const next = [];
+			for (let i = 0; i < current.length - 1; i++) {
+				next.push(lerpPoint(current[i], current[i + 1], t));
+			}
+			current = next;
+		}
+
+		return current[0] ?? null;
+	}
+
 	function cartesianToCanvas(x, y, width, height) {
 		return {
 			x: x + width / 2,
@@ -369,6 +470,8 @@
 	function init() {
 		const canvas = document.getElementById("curve-canvas");
 		const trailToggle = document.getElementById("trail-toggle");
+		const stepsSlider = document.getElementById("steps-slider");
+		const stepsValue = document.getElementById("steps-value");
 		const duplicateButton = document.getElementById("duplicate-point");
 		const deleteButton = document.getElementById("delete-point");
 
@@ -377,6 +480,7 @@
 			height: CANVAS_HEIGHT,
 			points: CONTROL_POINTS,
 			steps: BEZIER_STEPS,
+			curveSupersamples: CURVE_SUPERSAMPLES,
 			duplicateButton,
 			deleteButton,
 		});
@@ -400,6 +504,24 @@
 		if (deleteButton) {
 			deleteButton.addEventListener("click", () => {
 				visualizer.deleteSelectedPoint();
+			});
+		}
+
+		if (stepsSlider instanceof HTMLInputElement) {
+			const syncSampleControls = value => {
+				const normalized = Math.max(1, Number(value));
+				if (stepsValue) {
+					stepsValue.textContent = String(normalized);
+				}
+				visualizer.setSampleCount(normalized);
+			};
+
+			syncSampleControls(stepsSlider.value || stepsSlider.defaultValue || BEZIER_STEPS);
+			stepsSlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					syncSampleControls(input.value);
+				}
 			});
 		}
 	}
