@@ -41,6 +41,7 @@
 				display: flex;
 				gap: 12px;
 				align-items: center;
+				flex-wrap: wrap;
 			}
 
 			.controls label {
@@ -48,6 +49,20 @@
 				gap: 6px;
 				align-items: center;
 				cursor: pointer;
+			}
+
+			.controls button {
+				background: transparent;
+				border: 1px solid currentColor;
+				color: inherit;
+				padding: 6px 12px;
+				border-radius: 4px;
+				cursor: pointer;
+			}
+
+			.controls button:disabled {
+				opacity: 0.35;
+				cursor: not-allowed;
 			}
 		</style>
 	</head>
@@ -62,8 +77,10 @@
 					<input type="checkbox" id="trail-toggle" checked />
 					Show scaffolding trails
 				</label>
+				<button id="duplicate-point" disabled>Duplicate selected point</button>
+				<button id="delete-point" disabled>Delete selected point</button>
 			</div>
 		</div>
-			<script src="main.js"></script>
+		<script src="main.js"></script>
 	</body>
 </html>

@@ -11,6 +11,8 @@
 	]);
 
 	const SELECT_RADIUS = 18;
+	const DUPLICATE_OFFSET = Object.freeze({x: 20, y: 0});
+	const MIN_CONTROL_POINTS = 2;
 
 	const COLORS = {
 		control: [255, 32, 32, 255],
@@ -83,10 +85,13 @@
 			this.sampleCount = options.steps ?? 0;
 			this.selectedIndex = null;
 			this.dragPointerId = null;
+			this.duplicateButton = options.duplicateButton ?? null;
+			this.deleteButton = options.deleteButton ?? null;
 
 			this.trailEnabled = true;
 
 			this.attachPointerHandlers();
+			this.updateControlButtons();
 			this.render();
 		}
 
@@ -94,6 +99,18 @@
 			if (this.trailEnabled === enabled) return;
 			this.trailEnabled = enabled;
 			this.render();
+		}
+
+		updateControlButtons() {
+			if (this.duplicateButton) {
+				this.duplicateButton.disabled = this.selectedIndex === null;
+			}
+
+			if (this.deleteButton) {
+				const hasSelection = this.selectedIndex !== null;
+				const hasEnoughPoints = this.points.length > MIN_CONTROL_POINTS;
+				this.deleteButton.disabled = !(hasSelection && hasEnoughPoints);
+			}
 		}
 
 		render() {
@@ -146,6 +163,12 @@
 					this.buffer.drawCartesianPoint(inner.x, inner.y, COLORS.intermediate, POINT_RADII.intermediate);
 				}
 				innerPoints.push(inner);
+			}
+
+			if (innerPoints.length === 1) {
+				const finalPoint = innerPoints[0];
+				this.buffer.drawCartesianPoint(finalPoint.x, finalPoint.y, COLORS.result, POINT_RADII.curve);
+				return;
 			}
 
 			if (innerPoints.length > 1) {
@@ -206,12 +229,45 @@
 			if (this.selectedIndex === index) return;
 			this.selectedIndex = index;
 			this.render();
+			this.updateControlButtons();
 		}
 
 		clearSelection() {
 			if (this.selectedIndex === null) return;
 			this.selectedIndex = null;
 			this.render();
+			this.updateControlButtons();
+		}
+
+		duplicateSelectedPoint() {
+			if (this.selectedIndex === null) return;
+
+			const source = this.points[this.selectedIndex];
+			const duplicate = {
+				x: source.x + DUPLICATE_OFFSET.x,
+				y: source.y + DUPLICATE_OFFSET.y,
+			};
+
+			const insertIndex = this.selectedIndex + 1;
+			this.points.splice(insertIndex, 0, duplicate);
+			this.selectPoint(insertIndex);
+		}
+
+		deleteSelectedPoint() {
+			if (this.selectedIndex === null) return;
+			if (this.points.length <= MIN_CONTROL_POINTS) return;
+
+			const removedIndex = this.selectedIndex;
+			this.points.splice(removedIndex, 1);
+
+			if (this.points.length === 0) {
+				this.selectedIndex = null;
+			} else {
+				this.selectedIndex = Math.min(removedIndex, this.points.length - 1);
+			}
+
+			this.render();
+			this.updateControlButtons();
 		}
 
 		getCanvasPositionFromEvent(event) {
@@ -272,12 +328,16 @@
 	function init() {
 		const canvas = document.getElementById("curve-canvas");
 		const trailToggle = document.getElementById("trail-toggle");
+		const duplicateButton = document.getElementById("duplicate-point");
+		const deleteButton = document.getElementById("delete-point");
 
 		const visualizer = new BezierVisualizer(canvas, {
 			width: CANVAS_WIDTH,
 			height: CANVAS_HEIGHT,
 			points: CONTROL_POINTS,
 			steps: BEZIER_STEPS,
+			duplicateButton,
+			deleteButton,
 		});
 
 		if (trailToggle) {
@@ -287,6 +347,18 @@
 				if (input instanceof HTMLInputElement) {
 					visualizer.setTrailEnabled(input.checked);
 				}
+			});
+		}
+
+		if (duplicateButton) {
+			duplicateButton.addEventListener("click", () => {
+				visualizer.duplicateSelectedPoint();
+			});
+		}
+
+		if (deleteButton) {
+			deleteButton.addEventListener("click", () => {
+				visualizer.deleteSelectedPoint();
 			});
 		}
 	}
