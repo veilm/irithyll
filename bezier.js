@@ -9,11 +9,10 @@ canvas.height = CANVAS_HEIGHT;
 
 const ctx = canvas.getContext("2d");
 
-// data: always pass in direct JS form
 // x: from 0 (left) to CANVAS_WIDTH (right)
 // y: from 0 (top) to CANVAS_HEIGHT (bottom)
 // brightness: from 0.0 to 1.0
-function setPixel(data, x, y, brightness = 1, green = -1, blue = -1) {
+function setPixel(x, y, brightness = 1, green = -1, blue = -1) {
 	let r, g, b
 	const a = 255
 
@@ -25,7 +24,6 @@ function setPixel(data, x, y, brightness = 1, green = -1, blue = -1) {
 		r = 255 * brightness // also functions as r otherwise
 		g = 255 * green
 		b = 255 * blue
-		console.log(r, g, b)
 	}
 
 	r = Math.round(r)
@@ -40,14 +38,14 @@ function setPixel(data, x, y, brightness = 1, green = -1, blue = -1) {
 	// 4: 4 bytes (r, g, b, a) per pixel
 	const i = 4 * (y * CANVAS_WIDTH + x);
 
-	data[i] = r;
-	data[i + 1] = g;
-	data[i + 2] = b;
-	data[i + 3] = a;
+	STATE.data[i] = r;
+	STATE.data[i + 1] = g;
+	STATE.data[i + 2] = b;
+	STATE.data[i + 3] = a;
 }
 
 // input: cartesian
-function setCoordinate(data, x, y, brightness = 1, green = -1, blue = -1) {
+function setCoordinate(x, y, brightness = 1, green = -1, blue = -1) {
 	// cartesian x goes from -CANVAS_WIDTH/2 (left) to CANVAS_WIDTH/2 (right)
 	// canvas goes from 0 (left) to CANVAS_WIDTH (right)
 	const canvasX = x + CANVAS_WIDTH/2;
@@ -56,36 +54,89 @@ function setCoordinate(data, x, y, brightness = 1, green = -1, blue = -1) {
 	// canvas goes from 0 (top) to CANVAS_HEIGHT (bottom)
 	const canvasY = CANVAS_HEIGHT/2 - y;
 
-	setPixel(data, canvasX, canvasY, brightness, green, blue)
+	setPixel(canvasX, canvasY, brightness, green, blue)
 }
 
-function clearScreen(data) {
+function clearScreen() {
 	for (let y = 0; y < CANVAS_HEIGHT; y++) {
-		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y, 0);
+		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(x, y, 0);
 	}
 }
 
-const BEZIER_INPUT_POINTS = [
-	{x: -150, y: 0},
+// "[0] and [-1] technically ar-" shut up
+const BEZIER_CONTROL_POINTS = [
+	// {x: -150, y: 0},
+	{x: -250, y: 0},
 	{x: 0, y: 100},
-	{x: 150, y: 0},
+	{x: 50, y: 0},
+	// {x: 150, y: 0},
 ]
 
-function main() {
-	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
-	const data = frame.data;
+const BEZIER_STEPS = 300;
 
-	clearScreen(data);
-
-	for (let i = 0; i < 600; i++)
-		setPixel(data, i, 150, 0.5)
-
-	BEZIER_INPUT_POINTS.forEach(point => {
-		setCoordinate(data, point.x, point.y, 0, 1, 1)
-	})
-
-	// draw the frame
-	ctx.putImageData(frame, 0, 0);
+const STATE = {
+	bezierStep: 0,
+	frame: null,
+	data: null,
 }
 
-main()
+function renderControlPoints() {
+	BEZIER_CONTROL_POINTS.forEach(point => {
+		setCoordinate(point.x, point.y, 1, 0, 0)
+	})
+}
+
+function renderBezierStep() {
+	const t = STATE.bezierStep/BEZIER_STEPS
+
+	const scaffolds = []
+
+	for (let i = 0; i < BEZIER_CONTROL_POINTS.length - 1; i++) {
+		const x1 = BEZIER_CONTROL_POINTS[i].x
+		const x2 = BEZIER_CONTROL_POINTS[i+1].x
+		const y1 = BEZIER_CONTROL_POINTS[i].y
+		const y2 = BEZIER_CONTROL_POINTS[i+1].y
+
+		const scaffoldX = (x2 - x1) * t + x1;
+		const scaffoldY = (y2 - y1) * t + y1;
+		setCoordinate(scaffoldX, scaffoldY, 0.5)
+
+		scaffolds.push({x: scaffoldX, y: scaffoldY})
+	}
+
+	const x1 = scaffolds[0].x
+	const x2 = scaffolds[1].x
+	const y1 = scaffolds[0].y
+	const y2 = scaffolds[1].y
+	const finalX = (x2 - x1) * t + x1;
+	const finalY = (y2 - y1) * t + y1;
+	setCoordinate(finalX, finalY, 1)
+
+	renderControlPoints()
+
+	ctx.putImageData(STATE.frame, 0, 0);
+}
+
+function init() {
+	STATE.frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
+	STATE.data = STATE.frame.data;
+
+	clearScreen();
+
+	renderBezierStep()
+
+	// draw the frame
+	ctx.putImageData(STATE.frame, 0, 0);
+}
+
+document.addEventListener("keydown", (e) => {
+	if (e.key === "n") {
+		// clearScreen();
+		STATE.bezierStep += 1
+		document.getElementById("step").innerHTML = STATE.bezierStep
+
+		renderBezierStep()
+	}
+});
+
+init()
