@@ -60,27 +60,68 @@
 			this.step = 0;
 			this.stepLabel = options.stepLabel;
 			this.stepMaxLabel = options.stepMaxLabel;
+			this.skipButton = options.skipButton;
+
+			this.trailEnabled = false;
+			this.trailRenderedUntil = -1;
 
 			if (this.stepMaxLabel) this.stepMaxLabel.textContent = String(this.steps);
 			this.updateStepLabel();
-			this.render();
+			this.updateSkipState();
+			this.render(true);
 		}
 
 		nextStep() {
+			if (this.step >= this.steps) return;
 			this.step += 1;
 			this.updateStepLabel();
+			this.updateSkipState();
 			this.render();
+		}
+
+		skipToEnd() {
+			if (this.step >= this.steps) return;
+			this.step = this.steps;
+			this.updateStepLabel();
+			this.updateSkipState();
+			this.render();
+		}
+
+		setTrailEnabled(enabled) {
+			if (this.trailEnabled === enabled) return;
+			this.trailEnabled = enabled;
+			this.render(true);
 		}
 
 		updateStepLabel() {
 			if (this.stepLabel) this.stepLabel.textContent = String(this.step);
 		}
 
-		render() {
-			const t = this.steps === 0 ? 0 : this.step / this.steps;
-			this.buffer.clear();
+		updateSkipState() {
+			if (this.skipButton) this.skipButton.disabled = this.step >= this.steps;
+		}
 
-			this.drawBezierHierarchy(this.points, t);
+		render(forceFullRedraw = false) {
+			const cappedStep = Math.min(this.step, this.steps);
+			const needsClear = forceFullRedraw || !this.trailEnabled;
+
+			if (needsClear) {
+				this.buffer.clear();
+				this.trailRenderedUntil = -1;
+			}
+
+			if (this.trailEnabled) {
+				const start = Math.max(0, this.trailRenderedUntil + 1);
+				for (let i = start; i <= cappedStep; i++) {
+					const t = this.steps === 0 ? 0 : i / this.steps;
+					this.drawBezierHierarchy(this.points, t);
+				}
+				this.trailRenderedUntil = Math.max(this.trailRenderedUntil, cappedStep);
+			} else {
+				const t = this.steps === 0 ? 0 : cappedStep / this.steps;
+				this.drawBezierHierarchy(this.points, t);
+			}
+
 			this.drawControlPoints();
 
 			this.buffer.flush();
@@ -134,6 +175,8 @@
 		const canvas = document.getElementById("curve-canvas");
 		const stepLabel = document.getElementById("step-count");
 		const stepMaxLabel = document.getElementById("step-max");
+		const trailToggle = document.getElementById("trail-toggle");
+		const skipButton = document.getElementById("skip-button");
 
 		const visualizer = new BezierVisualizer(canvas, {
 			width: CANVAS_WIDTH,
@@ -142,6 +185,7 @@
 			steps: BEZIER_STEPS,
 			stepLabel,
 			stepMaxLabel,
+			skipButton,
 		});
 
 		document.addEventListener("keydown", event => {
@@ -149,6 +193,21 @@
 				visualizer.nextStep();
 			}
 		});
+
+		if (trailToggle) {
+			trailToggle.addEventListener("change", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					visualizer.setTrailEnabled(input.checked);
+				}
+			});
+		}
+
+		if (skipButton) {
+			skipButton.addEventListener("click", () => {
+				visualizer.skipToEnd();
+			});
+		}
 	}
 
 	init();
