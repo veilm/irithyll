@@ -41,7 +41,7 @@ const patterns = {};
 // const myfuncX => t => t;
 // const myFuncY = t => t * t;
 // const myFuncY = (x) => (x * x) / 1000 - 200;
-const myFuncY = (x) => (x == 0 ? 200 : (x * x) / 1000 - 200);
+const myFuncY = (x) => (x >= -5 && x <= 5 ? 200 : (x * x) / 1000 - 200);
 
 // data: always pass in direct JS form
 // x: from 0 (left) to CANVAS_WIDTH (right)

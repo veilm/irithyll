@@ -1,6 +1,0 @@
-1755063349 zooming
-	on Desmos visually it seems like
-	
-	1. you pick an x,y coordinate to zoom in on with your mouse
-	2. that same coordinate stays in the same position on your screen
-	3. everything around it zooms in/out
