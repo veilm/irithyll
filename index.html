@@ -153,6 +153,29 @@
 				gap: 12px;
 				flex-wrap: wrap;
 			}
+
+			.file-input-row {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				flex-wrap: wrap;
+			}
+
+			.file-input-row input[type="file"] {
+				color: #fceaea;
+			}
+
+			.reference-status {
+				font-size: 0.8rem;
+				color: rgba(252, 234, 234, 0.7);
+			}
+
+			.reference-controls {
+				display: flex;
+				gap: 12px;
+				align-items: center;
+				flex-wrap: wrap;
+			}
 		</style>
 	</head>
 	<body>
@@ -168,6 +191,36 @@
 						<button id="duplicate-point" disabled>Duplicate selected point</button>
 						<button id="delete-point" disabled>Delete selected point</button>
 					</div>
+				</div>
+				<div class="control-section">
+					<div class="section-title">Reference</div>
+					<label class="file-input-row">
+						<span>Image file</span>
+						<input type="file" id="reference-input" accept="image/*" />
+					</label>
+					<div class="reference-status" id="reference-file-name">No image loaded</div>
+					<div class="reference-controls">
+						<label class="toggle-control">
+							<input type="checkbox" id="reference-toggle" disabled />
+							<span>Show reference image</span>
+						</label>
+						<button id="clear-reference" disabled>Clear</button>
+					</div>
+					<label class="slider-control">
+						<div class="slider-label-row">
+							<span>Opacity</span>
+							<span id="reference-opacity-value" class="slider-value">0.60</span>
+						</div>
+						<input
+							type="range"
+							id="reference-opacity"
+							min="0"
+							max="1"
+							step="0.05"
+							value="0.6"
+							disabled
+						/>
+					</label>
 				</div>
 				<div class="control-section">
 					<div class="section-title">Sampling</div>

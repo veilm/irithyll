@@ -16,6 +16,7 @@
 	const CURVE_SUPERSAMPLES = 4;
 	const DEFAULT_CURVE_SOFT_RADIUS = 2;
 	const DEFAULT_CURVE_SOFT_INTENSITY = 0.4;
+	const DEFAULT_REFERENCE_OPACITY = 0.6;
 	const SCAFFOLD_GRADIENT = Object.freeze({
 		start: [Math.round(255 * 0.1), Math.round(255 * 0.1), Math.round(255 * 0.1)],
 		mid: [255, 255, 255],
@@ -114,8 +115,19 @@
 			this.data[offset + 3] = Math.max(this.data[offset + 3], color[3]);
 		}
 
-		flush() {
+		flush(backgroundImage = null, backgroundOpacity = 1) {
+			this.ctx.clearRect(0, 0, this.width, this.height);
 			this.ctx.putImageData(this.frame, 0, 0);
+			if (backgroundImage) {
+				const clampedOpacity = clamp01(backgroundOpacity);
+				if (clampedOpacity > 0) {
+					this.ctx.save();
+					this.ctx.globalAlpha = clampedOpacity;
+					this.ctx.globalCompositeOperation = "destination-over";
+					this.ctx.drawImage(backgroundImage, 0, 0, this.width, this.height);
+					this.ctx.restore();
+				}
+			}
 		}
 	}
 
@@ -128,6 +140,9 @@
 			this.curveSupersamples = Math.max(1, options.curveSupersamples ?? 1);
 			this.curveSoftRadius = Math.max(0.1, options.curveSoftRadius ?? DEFAULT_CURVE_SOFT_RADIUS);
 			this.curveSoftIntensity = clamp01(options.curveSoftIntensity ?? DEFAULT_CURVE_SOFT_INTENSITY);
+			this.referenceImage = null;
+			this.referenceOpacity = clamp01(options.referenceOpacity ?? DEFAULT_REFERENCE_OPACITY);
+			this.referenceVisible = false;
 			this.selectedIndex = null;
 			this.dragPointerId = null;
 			this.duplicateButton = options.duplicateButton ?? null;
@@ -182,7 +197,8 @@
 			this.drawSupersampledCurve(samples);
 
 			this.drawControlPoints();
-			this.buffer.flush();
+			const backgroundImage = this.referenceVisible ? this.referenceImage : null;
+			this.buffer.flush(backgroundImage, this.referenceOpacity);
 		}
 
 		drawSupersampledCurve(baseSamples) {
@@ -274,6 +290,59 @@
 			const clamped = Math.max(1, Math.floor(count));
 			if (clamped === this.sampleCount) return;
 			this.sampleCount = clamped;
+			this.render();
+		}
+
+		hasReferenceImage() {
+			return Boolean(this.referenceImage);
+		}
+
+		async loadReferenceFile(file) {
+			if (!file) return false;
+			try {
+				const image = await loadImageFromFile(file);
+				this.setReferenceImage(image);
+				return true;
+			} catch (error) {
+				console.error("Failed to load reference image", error);
+				return false;
+			}
+		}
+
+		setReferenceImage(image) {
+			if (!image) return;
+			this.releaseReferenceImage();
+			this.referenceImage = image;
+			this.referenceVisible = true;
+			this.render();
+		}
+
+		clearReferenceImage() {
+			if (!this.referenceImage) return;
+			this.releaseReferenceImage();
+			this.referenceVisible = false;
+			this.render();
+		}
+
+		releaseReferenceImage() {
+			if (this.referenceImage && typeof this.referenceImage.close === "function") {
+				this.referenceImage.close();
+			}
+			this.referenceImage = null;
+		}
+
+		setReferenceVisibility(enabled) {
+			const normalized = Boolean(enabled);
+			const nextValue = normalized && this.hasReferenceImage();
+			if (this.referenceVisible === nextValue) return;
+			this.referenceVisible = nextValue;
+			this.render();
+		}
+
+		setReferenceOpacity(value) {
+			const normalized = clamp01(Number(value) || 0);
+			if (Math.abs(normalized - this.referenceOpacity) < 1e-3) return;
+			this.referenceOpacity = normalized;
 			this.render();
 		}
 
@@ -455,6 +524,41 @@
 		return Math.min(1, Math.max(0, value));
 	}
 
+	async function loadImageFromFile(file) {
+		if (!file) {
+			throw new Error("No file provided");
+		}
+		if (typeof createImageBitmap === "function") {
+			return await createImageBitmap(file);
+		}
+		const dataUrl = await readFileAsDataURL(file);
+		return await loadImageElement(dataUrl);
+	}
+
+	function readFileAsDataURL(file) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+			reader.onload = () => {
+				if (typeof reader.result === "string") {
+					resolve(reader.result);
+				} else {
+					reject(new Error("Unexpected reader result"));
+				}
+			};
+			reader.readAsDataURL(file);
+		});
+	}
+
+	function loadImageElement(src) {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			img.onload = () => resolve(img);
+			img.onerror = () => reject(new Error("Failed to load image"));
+			img.src = src;
+		});
+	}
+
 	function cartesianToCanvas(x, y, width, height) {
 		return {
 			x: x + width / 2,
@@ -493,6 +597,12 @@
 		const trailToggle = document.getElementById("trail-toggle");
 		const stepsSlider = document.getElementById("steps-slider");
 		const stepsValue = document.getElementById("steps-value");
+		const referenceInput = document.getElementById("reference-input");
+		const referenceFileName = document.getElementById("reference-file-name");
+		const referenceToggle = document.getElementById("reference-toggle");
+		const referenceOpacitySlider = document.getElementById("reference-opacity");
+		const referenceOpacityValue = document.getElementById("reference-opacity-value");
+		const clearReferenceButton = document.getElementById("clear-reference");
 		const softRadiusSlider = document.getElementById("soft-radius-slider");
 		const softRadiusValue = document.getElementById("soft-radius-value");
 		const softIntensitySlider = document.getElementById("soft-intensity-slider");
@@ -508,6 +618,7 @@
 			curveSupersamples: CURVE_SUPERSAMPLES,
 			curveSoftRadius: DEFAULT_CURVE_SOFT_RADIUS,
 			curveSoftIntensity: DEFAULT_CURVE_SOFT_INTENSITY,
+			referenceOpacity: DEFAULT_REFERENCE_OPACITY,
 			duplicateButton,
 			deleteButton,
 		});
@@ -589,6 +700,101 @@
 				}
 			});
 		}
+
+		const updateReferenceUiState = () => {
+			const hasImage = visualizer.hasReferenceImage();
+			if (referenceToggle instanceof HTMLInputElement) {
+				referenceToggle.disabled = !hasImage;
+				if (!hasImage) {
+					referenceToggle.checked = false;
+				}
+			}
+			if (referenceOpacitySlider instanceof HTMLInputElement) {
+				referenceOpacitySlider.disabled = !hasImage;
+			}
+			if (clearReferenceButton instanceof HTMLButtonElement) {
+				clearReferenceButton.disabled = !hasImage;
+			}
+		};
+
+		if (referenceToggle instanceof HTMLInputElement) {
+			referenceToggle.addEventListener("change", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					visualizer.setReferenceVisibility(input.checked);
+				}
+			});
+		}
+
+		const applyReferenceOpacityValue = value => {
+			const normalized = clamp01(Number(value));
+			if (referenceOpacityValue) {
+				referenceOpacityValue.textContent = normalized.toFixed(2);
+			}
+			visualizer.setReferenceOpacity(normalized);
+		};
+
+		if (referenceOpacitySlider instanceof HTMLInputElement) {
+			referenceOpacitySlider.value = String(DEFAULT_REFERENCE_OPACITY);
+			applyReferenceOpacityValue(referenceOpacitySlider.value);
+			referenceOpacitySlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					applyReferenceOpacityValue(input.value);
+				}
+			});
+		}
+
+		if (referenceInput instanceof HTMLInputElement) {
+			referenceInput.addEventListener("change", async () => {
+				const files = referenceInput.files;
+				const file = files && files[0];
+				if (!file) return;
+				if (referenceFileName) {
+					referenceFileName.textContent = `Loading ${file.name}...`;
+				}
+				const success = await visualizer.loadReferenceFile(file);
+				if (success) {
+					if (referenceFileName) {
+						referenceFileName.textContent = file.name;
+					}
+					if (referenceToggle instanceof HTMLInputElement) {
+						referenceToggle.checked = true;
+						visualizer.setReferenceVisibility(true);
+					}
+				if (referenceOpacitySlider instanceof HTMLInputElement) {
+					referenceOpacitySlider.value = String(visualizer.referenceOpacity);
+					applyReferenceOpacityValue(referenceOpacitySlider.value);
+				}
+				} else if (referenceFileName) {
+					referenceFileName.textContent = "Failed to load image";
+				}
+				referenceInput.value = "";
+				updateReferenceUiState();
+			});
+		}
+
+		if (clearReferenceButton instanceof HTMLButtonElement) {
+			clearReferenceButton.addEventListener("click", () => {
+				visualizer.clearReferenceImage();
+				if (referenceInput instanceof HTMLInputElement) {
+					referenceInput.value = "";
+				}
+				if (referenceFileName) {
+					referenceFileName.textContent = "No image loaded";
+				}
+				if (referenceToggle instanceof HTMLInputElement) {
+					referenceToggle.checked = false;
+				}
+				if (referenceOpacitySlider instanceof HTMLInputElement) {
+					referenceOpacitySlider.value = String(DEFAULT_REFERENCE_OPACITY);
+					applyReferenceOpacityValue(referenceOpacitySlider.value);
+				}
+				updateReferenceUiState();
+			});
+		}
+
+		updateReferenceUiState();
 	}
 
 	init();
