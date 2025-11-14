@@ -1,16 +1,16 @@
 (() => {
-	const CANVAS_WIDTH = 600;
-	const CANVAS_HEIGHT = 300;
+	const CANVAS_WIDTH = 960;
+	const CANVAS_HEIGHT = 720;
 	const BEZIER_STEPS = 600;
 
 	const CONTROL_POINTS = Object.freeze([
-		{x: -250, y: 0},
-		{x: 0, y: 100},
-		{x: 50, y: 0},
-		{x: 150, y: 100},
+		{x: -360, y: -60},
+		{x: -80, y: 160},
+		{x: 140, y: -40},
+		{x: 360, y: 220},
 	]);
 
-	const SELECT_RADIUS = 12;
+	const SELECT_RADIUS = 18;
 
 	const COLORS = {
 		control: [255, 32, 32, 255],
@@ -19,6 +19,14 @@
 		intermediate: [210, 210, 210, 255],
 		result: [255, 0, 0, 255],
 	};
+
+	const POINT_RADII = Object.freeze({
+		curve: 2,
+		scaffold: 1,
+		intermediate: 1,
+		control: 6,
+		selectedControl: 7,
+	});
 
 	class CanvasBuffer {
 		constructor(canvas, width, height) {
@@ -37,17 +45,28 @@
 			this.data.fill(0);
 		}
 
-		drawCartesianPoint(x, y, color) {
+		drawCartesianPoint(x, y, color, radius = 0) {
 			const canvasCoords = cartesianToCanvas(x, y, this.width, this.height);
-			const canvasX = Math.round(canvasCoords.x);
-			const canvasY = Math.round(canvasCoords.y);
+			const centerX = Math.round(canvasCoords.x);
+			const centerY = Math.round(canvasCoords.y);
+			const radiusInt = Math.max(0, radius | 0);
+			const radiusSquared = radiusInt * radiusInt;
 
-			if (canvasX < 0 || canvasX >= this.width) return;
-			if (canvasY < 0 || canvasY >= this.height) return;
+			for (let dy = -radiusInt; dy <= radiusInt; dy++) {
+				const py = centerY + dy;
+				if (py < 0 || py >= this.height) continue;
 
-			const offset = 4 * (canvasY * this.width + canvasX);
-			for (let i = 0; i < 4; i++) {
-				this.data[offset + i] = color[i];
+				for (let dx = -radiusInt; dx <= radiusInt; dx++) {
+					if (radiusInt > 0 && dx * dx + dy * dy > radiusSquared) continue;
+
+					const px = centerX + dx;
+					if (px < 0 || px >= this.width) continue;
+
+					const offset = 4 * (py * this.width + px);
+					for (let i = 0; i < 4; i++) {
+						this.data[offset + i] = color[i];
+					}
+				}
 			}
 		}
 
@@ -137,8 +156,10 @@
 
 		drawControlPoints() {
 			this.points.forEach((point, index) => {
-				const color = index === this.selectedIndex ? COLORS.selectedControl : COLORS.control;
-				this.buffer.drawCartesianPoint(point.x, point.y, color);
+				const isSelected = index === this.selectedIndex;
+				const color = isSelected ? COLORS.selectedControl : COLORS.control;
+				const radius = isSelected ? POINT_RADII.selectedControl : POINT_RADII.control;
+				this.buffer.drawCartesianPoint(point.x, point.y, color, radius);
 			});
 		}
 
@@ -149,19 +170,21 @@
 
 			for (let i = 0; i < points.length - 1; i++) {
 				const interpolated = lerpPoint(points[i], points[i + 1], t);
-				const color = points.length === 2 ? COLORS.result : COLORS.scaffold;
-				this.buffer.drawCartesianPoint(interpolated.x, interpolated.y, color);
+				const isCurvePoint = points.length === 2;
+				const color = isCurvePoint ? COLORS.result : COLORS.scaffold;
+				const radius = isCurvePoint ? POINT_RADII.curve : POINT_RADII.scaffold;
+				this.buffer.drawCartesianPoint(interpolated.x, interpolated.y, color, radius);
 				scaffolds.push(interpolated);
 			}
 
 			if (scaffolds.length <= 1) return;
 
 			const innerPoints = [];
-			for (let i = 0; i < scaffolds.length - 1; i++) {
-				const inner = lerpPoint(scaffolds[i], scaffolds[i + 1], t);
-				this.buffer.drawCartesianPoint(inner.x, inner.y, COLORS.intermediate);
-				innerPoints.push(inner);
-			}
+				for (let i = 0; i < scaffolds.length - 1; i++) {
+					const inner = lerpPoint(scaffolds[i], scaffolds[i + 1], t);
+					this.buffer.drawCartesianPoint(inner.x, inner.y, COLORS.intermediate, POINT_RADII.intermediate);
+					innerPoints.push(inner);
+				}
 
 			if (innerPoints.length > 1) {
 				this.drawBezierHierarchy(innerPoints, t);
