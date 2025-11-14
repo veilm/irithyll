@@ -13,6 +13,11 @@
 	const SELECT_RADIUS = 18;
 	const DUPLICATE_OFFSET = Object.freeze({x: 20, y: 0});
 	const MIN_CONTROL_POINTS = 2;
+	const SCAFFOLD_GRADIENT = Object.freeze({
+		start: [Math.round(255 * 0.1), Math.round(255 * 0.1), Math.round(255 * 0.1)],
+		mid: [255, 255, 255],
+		end: [255, Math.round(255 * 0.5), Math.round(255 * 0.5)],
+	});
 
 	const COLORS = {
 		control: [255, 32, 32, 255],
@@ -118,10 +123,11 @@
 
 			const samples = Math.max(1, this.sampleCount);
 			const drawScaffolds = this.trailEnabled;
+			const totalScaffoldLevels = Math.max(1, this.points.length - 2);
 
 			for (let i = 0; i <= samples; i++) {
 				const t = i / samples;
-				this.drawBezierHierarchy(this.points, t, drawScaffolds);
+				this.drawBezierHierarchy(this.points, t, drawScaffolds, totalScaffoldLevels, 0);
 			}
 
 			this.drawControlPoints();
@@ -137,7 +143,7 @@
 			});
 		}
 
-		drawBezierHierarchy(points, t, drawScaffolds = true) {
+		drawBezierHierarchy(points, t, drawScaffolds = true, totalScaffoldLevels = 1, levelIndex = 0) {
 			if (points.length < 2) return;
 
 			const scaffolds = [];
@@ -147,7 +153,9 @@
 				const isCurvePoint = points.length === 2;
 				const shouldDraw = isCurvePoint || drawScaffolds;
 				if (shouldDraw) {
-					const color = isCurvePoint ? COLORS.result : COLORS.scaffold;
+					const color = isCurvePoint
+						? COLORS.result
+						: this.getScaffoldColor(levelIndex, totalScaffoldLevels);
 					const radius = isCurvePoint ? POINT_RADII.curve : POINT_RADII.scaffold;
 					this.buffer.drawCartesianPoint(interpolated.x, interpolated.y, color, radius);
 				}
@@ -160,7 +168,8 @@
 			for (let i = 0; i < scaffolds.length - 1; i++) {
 				const inner = lerpPoint(scaffolds[i], scaffolds[i + 1], t);
 				if (drawScaffolds) {
-					this.buffer.drawCartesianPoint(inner.x, inner.y, COLORS.intermediate, POINT_RADII.intermediate);
+					const innerColor = this.getScaffoldColor(levelIndex + 1, totalScaffoldLevels);
+					this.buffer.drawCartesianPoint(inner.x, inner.y, innerColor, POINT_RADII.intermediate);
 				}
 				innerPoints.push(inner);
 			}
@@ -172,8 +181,21 @@
 			}
 
 			if (innerPoints.length > 1) {
-				this.drawBezierHierarchy(innerPoints, t, drawScaffolds);
+				this.drawBezierHierarchy(
+					innerPoints,
+					t,
+					drawScaffolds,
+					totalScaffoldLevels,
+					levelIndex + 1
+				);
 			}
+		}
+
+		getScaffoldColor(levelIndex, totalLevels) {
+			if (totalLevels <= 0) return COLORS.scaffold;
+			const clampedIndex = Math.min(totalLevels, Math.max(0, levelIndex));
+			const progress = (clampedIndex + 1) / (totalLevels + 1);
+			return computeScaffoldGradient(progress);
 		}
 
 		attachPointerHandlers() {
@@ -323,6 +345,25 @@
 			x: x - width / 2,
 			y: height / 2 - y,
 		};
+	}
+
+	function computeScaffoldGradient(progress) {
+		const clamped = Math.min(1, Math.max(0, progress));
+		if (clamped <= 0.5) {
+			const localT = clamped / 0.5;
+			return lerpColor(SCAFFOLD_GRADIENT.start, SCAFFOLD_GRADIENT.mid, localT);
+		}
+		const localT = (clamped - 0.5) / 0.5;
+		return lerpColor(SCAFFOLD_GRADIENT.mid, SCAFFOLD_GRADIENT.end, localT);
+	}
+
+	function lerpColor(start, end, t) {
+		return [
+			Math.round(lerp(start[0], end[0], t)),
+			Math.round(lerp(start[1], end[1], t)),
+			Math.round(lerp(start[2], end[2], t)),
+			255,
+		];
 	}
 
 	function init() {
