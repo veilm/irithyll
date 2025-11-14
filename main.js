@@ -1,452 +1,295 @@
-// const CANVAS_WIDTH = 1920 * 3/4
-const CANVAS_WIDTH = 1080;
-const CANVAS_HEIGHT = 1080 * (3 / 4);
+(() => {
+	const CANVAS_WIDTH = 960;
+	const CANVAS_HEIGHT = 720;
+	const BEZIER_STEPS = 600;
 
-const canvas = document.getElementById("canvas");
-const codeTextarea = document.getElementById("codeTextarea");
-const patternSelect = document.getElementById("pattern");
+	const CONTROL_POINTS = Object.freeze([
+		{x: -360, y: -60},
+		{x: -80, y: 160},
+		{x: 140, y: -40},
+		{x: 360, y: 220},
+	]);
 
-canvas.width = CANVAS_WIDTH;
-canvas.height = CANVAS_HEIGHT;
+	const SELECT_RADIUS = 18;
 
-const ctx = canvas.getContext("2d");
+	const COLORS = {
+		control: [255, 32, 32, 255],
+		selectedControl: [255, 190, 0, 255],
+		scaffold: [180, 180, 180, 255],
+		intermediate: [210, 210, 210, 255],
+		result: [255, 0, 0, 255],
+	};
 
-const config = {
-	center: {
-		x: 0,
-		y: 200,
-	},
-	scale: 0.5,
-};
+	const POINT_RADII = Object.freeze({
+		curve: 2,
+		scaffold: 1,
+		intermediate: 1,
+		control: 6,
+		selectedControl: 7,
+	});
 
-// Will store loaded pattern code
-const patterns = {};
+	class CanvasBuffer {
+		constructor(canvas, width, height) {
+			this.canvas = canvas;
+			this.canvas.width = width;
+			this.canvas.height = height;
+			this.width = width;
+			this.height = height;
 
-// Reality: Internal ground truth
-// Display: The window the user sees into the world
-// const reality = {};
-// for (let x = -100; x <= 100; x += 10) {
-// 	if (!reality[x]) reality[x] = {};
-// 	reality[x][0] = 1;
-// }
-// for (let x = -50; x <= 50; x += 10) {
-// 	if (!reality[x]) reality[x] = {};
-// 	reality[x][25] = 1;
-// }
-// for (let x = -50; x <= 50; x += 10) {
-// 	if (!reality[x]) reality[x] = {};
-// 	reality[x][50] = 1;
-// }
+			this.ctx = canvas.getContext("2d");
+			this.frame = this.ctx.createImageData(width, height);
+			this.data = this.frame.data;
+		}
 
-// const myfuncX => t => t;
-// const myFuncY = t => t * t;
-// const myFuncY = (x) => (x * x) / 1000 - 200;
-const myFuncY = (x) => (x >= -5 && x <= 5 ? 200 : (x * x) / 1000 - 200);
+		clear() {
+			this.data.fill(0);
+		}
 
-// data: always pass in direct JS form
-// x: from 0 (left) to CANVAS_WIDTH (right)
-// y: from 0 (top) to CANVAS_HEIGHT (bottom)
-// brightness: from 0.0 to 1.0
-function setPixel(data, x, y, brightness = 1) {
-	brightness = Math.round(brightness * 255);
+		drawCartesianPoint(x, y, color, radius = 0) {
+			const canvasCoords = cartesianToCanvas(x, y, this.width, this.height);
+			const centerX = Math.round(canvasCoords.x);
+			const centerY = Math.round(canvasCoords.y);
+			const radiusInt = Math.max(0, radius | 0);
+			const radiusSquared = radiusInt * radiusInt;
 
-	x = Math.round(x);
-	y = Math.round(y);
+			for (let dy = -radiusInt; dy <= radiusInt; dy++) {
+				const py = centerY + dy;
+				if (py < 0 || py >= this.height) continue;
 
-	if (x < 0 || x > CANVAS_WIDTH || y < 0 || y > CANVAS_HEIGHT) return;
+				for (let dx = -radiusInt; dx <= radiusInt; dx++) {
+					if (radiusInt > 0 && dx * dx + dy * dy > radiusSquared) continue;
 
-	// 4: 4 bytes (r, g, b, a) per pixel
-	const i = 4 * (y * CANVAS_WIDTH + x);
+					const px = centerX + dx;
+					if (px < 0 || px >= this.width) continue;
 
-	data[i] = brightness; // r
-	data[i + 1] = brightness; // g
-	data[i + 2] = brightness; // b
-	data[i + 3] = 255; // a
-}
+					const offset = 4 * (py * this.width + px);
+					for (let i = 0; i < 4; i++) {
+						this.data[offset + i] = color[i];
+					}
+				}
+			}
+		}
 
-// Textarea will be populated with selected pattern on load
-
-const PRIMARY_PATTERN = "parabola_up_0";
-
-// Load all patterns from individual files
-async function loadPatterns() {
-	for (const patternName of PATTERN_LIST) {
-		try {
-			const response = await fetch(`patterns/${patternName}.js`);
-			patterns[patternName] = await response.text();
-		} catch (error) {
-			console.error(`Failed to load pattern ${patternName}:`, error);
+		flush() {
+			this.ctx.putImageData(this.frame, 0, 0);
 		}
 	}
 
-	// Add pattern options to select (already sorted newest to oldest in PATTERN_LIST)
-	PATTERN_LIST.forEach((pattern) => {
-		const option = document.createElement("option");
-		option.value = pattern;
-		option.innerHTML = pattern;
-		patternSelect.appendChild(option);
-	});
+	class BezierVisualizer {
+		constructor(canvas, options) {
+			this.canvas = canvas;
+			this.buffer = new CanvasBuffer(canvas, options.width, options.height);
+			this.points = options.points.map(point => ({...point}));
+			this.sampleCount = options.steps ?? 0;
+			this.selectedIndex = null;
+			this.dragPointerId = null;
 
-	// Auto-select the PRIMARY_PATTERN if it exists, otherwise first pattern
-	if (patterns[PRIMARY_PATTERN]) {
-		patternSelect.value = PRIMARY_PATTERN;
-		codeTextarea.value = patterns[PRIMARY_PATTERN];
-	} else if (PATTERN_LIST.length > 0 && patterns[PATTERN_LIST[0]]) {
-		patternSelect.value = PATTERN_LIST[0];
-		codeTextarea.value = patterns[PATTERN_LIST[0]];
-	}
-}
+			this.trailEnabled = true;
 
-// source: /home/oboro/src/irithyll/patterns/grid.js
-function grid(data, gridCols = 12, gridRows = (12 * 3) / 4, brightness = 0.2) {
-	for (let i = 0; i < gridCols; i++) {
-		const x = i * (CANVAS_WIDTH / gridCols);
+			this.attachPointerHandlers();
+			this.render();
+		}
 
-		for (let y = 0; y < CANVAS_HEIGHT; y++) setPixel(data, x, y, brightness);
-	}
+		setTrailEnabled(enabled) {
+			if (this.trailEnabled === enabled) return;
+			this.trailEnabled = enabled;
+			this.render();
+		}
 
-	for (let i = 0; i < gridRows; i++) {
-		const y = i * (CANVAS_HEIGHT / gridRows);
+		render() {
+			this.buffer.clear();
 
-		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y, brightness);
-	}
-}
+			const samples = Math.max(1, this.sampleCount);
+			const drawScaffolds = this.trailEnabled;
 
-function clearScreen(data) {
-	for (let y = 0; y < CANVAS_HEIGHT; y++) {
-		for (let x = 0; x < CANVAS_WIDTH; x++) setPixel(data, x, y, false);
-	}
-}
+			for (let i = 0; i <= samples; i++) {
+				const t = i / samples;
+				this.drawBezierHierarchy(this.points, t, drawScaffolds);
+			}
 
-// JS(0,0) is the top left so should be Cart(-CANVAS_WIDTH/2, CANVAS_HEIGHT/2)
-// JS(100,200) is the top left, then 100 right, 200 down. so should be Cart(-CANVAS_WIDTH/2 + 100, CANVAS_HEIGHT/2 - 200)
-function computeRealX(displayX) {
-	let realX = displayX - CANVAS_WIDTH / 2;
-	realX *= 1 / config.scale;
-	realX += config.center.x;
-	return realX;
-}
-function computeRealY(displayY) {
-	let realY = -displayY + CANVAS_HEIGHT / 2;
-	realY *= 1 / config.scale;
-	realY += config.center.y;
-	return realY;
-}
+			this.drawControlPoints();
+			this.buffer.flush();
+		}
 
-function displayIllusion2() {
-	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
-	const data = frame.data;
+		drawControlPoints() {
+			this.points.forEach((point, index) => {
+				const isSelected = index === this.selectedIndex;
+				const color = isSelected ? COLORS.selectedControl : COLORS.control;
+				const radius = isSelected ? POINT_RADII.selectedControl : POINT_RADII.control;
+				this.buffer.drawCartesianPoint(point.x, point.y, color, radius);
+			});
+		}
 
-	clearScreen(data);
+		drawBezierHierarchy(points, t, drawScaffolds = true) {
+			if (points.length < 2) return;
 
-	const func = myFuncY;
-	// const center = {x: 0, y: 0}
+			const scaffolds = [];
 
-	const startX = -CANVAS_WIDTH / 2;
-	const startY = -CANVAS_HEIGHT / 2;
-	const endX = CANVAS_WIDTH / 2;
-	const endY = CANVAS_HEIGHT / 2;
+			for (let i = 0; i < points.length - 1; i++) {
+				const interpolated = lerpPoint(points[i], points[i + 1], t);
+				const isCurvePoint = points.length === 2;
+				const shouldDraw = isCurvePoint || drawScaffolds;
+				if (shouldDraw) {
+					const color = isCurvePoint ? COLORS.result : COLORS.scaffold;
+					const radius = isCurvePoint ? POINT_RADII.curve : POINT_RADII.scaffold;
+					this.buffer.drawCartesianPoint(interpolated.x, interpolated.y, color, radius);
+				}
+				scaffolds.push(interpolated);
+			}
 
-	const realStartX = computeRealX(0);
-	const realStartY = computeRealY(CANVAS_HEIGHT);
-	const realEndX = computeRealX(CANVAS_WIDTH);
-	const realEndY = computeRealY(0);
-	const realRangeX = realEndX - realStartX;
-	const realRangeY = realEndY - realStartY;
+			if (scaffolds.length <= 1) return;
 
-	const BRIGHTNESS_DRIFT = 5;
-	const adjustedBrightnessDrift =
-		(realRangeY / CANVAS_HEIGHT) * BRIGHTNESS_DRIFT;
-	console.log(adjustedBrightnessDrift);
+			const innerPoints = [];
+			for (let i = 0; i < scaffolds.length - 1; i++) {
+				const inner = lerpPoint(scaffolds[i], scaffolds[i + 1], t);
+				if (drawScaffolds) {
+					this.buffer.drawCartesianPoint(inner.x, inner.y, COLORS.intermediate, POINT_RADII.intermediate);
+				}
+				innerPoints.push(inner);
+			}
 
-	for (let displayX = 0; displayX <= CANVAS_WIDTH; displayX++) {
-		for (let displayY = 0; displayY <= CANVAS_HEIGHT; displayY++) {
-			const realX = computeRealX(displayX);
-			const realY = computeRealY(displayY);
+			if (innerPoints.length > 1) {
+				this.drawBezierHierarchy(innerPoints, t, drawScaffolds);
+			}
+		}
 
-			const labelY = func(realX);
-			const diffY = Math.abs(labelY - realY);
+		attachPointerHandlers() {
+			this.onPointerDown = this.handlePointerDown.bind(this);
+			this.onPointerMove = this.handlePointerMove.bind(this);
+			this.onPointerUp = this.handlePointerUp.bind(this);
 
-			// diff 0 => 1 brightness
-			// diff CANVAS_HEIGHT => 0 brightness
-			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 1;
-			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 10;
-			// const brightness = (1 - diffY / CANVAS_HEIGHT) ** 40;
-			// const brightness = diffY <= 20 ? 1 - diffY/20 : 0;
-			// const brightness = diffY <= 3 ? 1 - diffY/5 : 0;
-			// const brightness = diffY <= 5 ? 1 - diffY / 5 : 0;
+			this.canvas.addEventListener("pointerdown", this.onPointerDown);
+			this.canvas.addEventListener("pointermove", this.onPointerMove);
+			this.canvas.addEventListener("pointerup", this.onPointerUp);
+			this.canvas.addEventListener("pointerleave", this.onPointerUp);
+			this.canvas.addEventListener("pointercancel", this.onPointerUp);
+		}
 
-			// 1080 => 5
-			// realRangeY => realRangeY/1080 * 5
-			const brightness =
-				diffY <= adjustedBrightnessDrift
-					? 1 - diffY / adjustedBrightnessDrift
-					: 0;
+		handlePointerDown(event) {
+			if (event.button !== 0) return;
+			event.preventDefault();
+			const canvasPos = this.getCanvasPositionFromEvent(event);
+			const hitIndex = this.hitTestControlPoint(canvasPos);
 
-			setPixel(data, displayX, displayY, brightness);
+			if (hitIndex !== null) {
+				this.selectPoint(hitIndex);
+				this.dragPointerId = event.pointerId;
+				this.canvas.setPointerCapture(event.pointerId);
+			} else {
+				this.clearSelection();
+			}
+		}
+
+		handlePointerMove(event) {
+			if (this.dragPointerId === null || event.pointerId !== this.dragPointerId) return;
+			event.preventDefault();
+			if (this.selectedIndex === null) return;
+
+			const canvasPos = this.getCanvasPositionFromEvent(event);
+			const cartesian = canvasToCartesian(canvasPos.x, canvasPos.y, this.buffer.width, this.buffer.height);
+
+			const point = this.points[this.selectedIndex];
+			point.x = cartesian.x;
+			point.y = cartesian.y;
+
+			this.render();
+		}
+
+		handlePointerUp(event) {
+			if (this.dragPointerId !== null && event.pointerId === this.dragPointerId) {
+				this.canvas.releasePointerCapture(event.pointerId);
+				this.dragPointerId = null;
+			}
+		}
+
+		selectPoint(index) {
+			if (this.selectedIndex === index) return;
+			this.selectedIndex = index;
+			this.render();
+		}
+
+		clearSelection() {
+			if (this.selectedIndex === null) return;
+			this.selectedIndex = null;
+			this.render();
+		}
+
+		getCanvasPositionFromEvent(event) {
+			const rect = this.canvas.getBoundingClientRect();
+			const scaleX = this.canvas.width / rect.width;
+			const scaleY = this.canvas.height / rect.height;
+			return {
+				x: (event.clientX - rect.left) * scaleX,
+				y: (event.clientY - rect.top) * scaleY,
+			};
+		}
+
+		hitTestControlPoint(canvasPos) {
+			let closestIndex = null;
+			let closestDistance = Number.POSITIVE_INFINITY;
+
+			this.points.forEach((point, index) => {
+				const canvasPoint = cartesianToCanvas(point.x, point.y, this.buffer.width, this.buffer.height);
+				const dx = canvasPos.x - canvasPoint.x;
+				const dy = canvasPos.y - canvasPoint.y;
+				const distance = Math.hypot(dx, dy);
+
+				if (distance <= SELECT_RADIUS && distance < closestDistance) {
+					closestDistance = distance;
+					closestIndex = index;
+				}
+			});
+
+			return closestIndex;
 		}
 	}
 
-	// draw the frame
-	ctx.putImageData(frame, 0, 0);
-}
-
-function main() {
-	const frame = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
-	const data = frame.data;
-
-	clearScreen(data);
-
-	// Always execute what's in the textarea
-	const patternCode = codeTextarea.value;
-	eval(patternCode);
-
-	// draw the frame
-	ctx.putImageData(frame, 0, 0);
-}
-
-patternSelect.onchange = () => {
-	const selectedPattern = patternSelect.value;
-
-	// Load the selected pattern into the textarea
-	if (patterns[selectedPattern]) {
-		codeTextarea.value = patterns[selectedPattern];
+	function lerp(a, b, t) {
+		return (b - a) * t + a;
 	}
 
-	main();
-};
-
-// Global Ctrl+Enter handler - just re-render with current textarea content
-document.addEventListener("keydown", (e) => {
-	if (e.ctrlKey && e.key === "Enter") {
-		main();
+	function lerpPoint(p1, p2, t) {
+		return {
+			x: lerp(p1.x, p2.x, t),
+			y: lerp(p1.y, p2.y, t),
+		};
 	}
-});
 
-// Add click handler for the draw button
-const drawButton = document.getElementById("drawButton");
-drawButton.addEventListener("click", () => {
-	main();
-});
-
-// Camera interaction API - you implement these!
-let onZoom = (deltaFrac, canvasX, canvasY) => {
-	// console.log(
-	// 	`Zoom: ${deltaFrac} at (${canvasX}, ${canvasY})`,
-	// );
-
-	/*
-	Tihs means before and after the zoom, the point at canvasX,canvasY should
-	appear in the same spot
-	So basically we also have to adjust config.center accordingly
-
-	realBeforeX = canvasX - CANVAS_WIDTH / 2;
-	realBeforeX *= 1 / config.scale;
-	realBeforeX += config.center.x;
-
-	realBeforeY = -displayY + CANVAS_HEIGHT / 2;
-	realBeforeY *= 1 / config.scale;
-	realBeforeY += config.center.y;
-
-	realBeforeX = (canvasX - CANVAS_WIDTH / 2) / config.scale + config.center.x
-	realBeforeY = (CANVAS_HEIGHT/2 - displayY) / config.scale + config.center.y
-
-	newScale = config.scale * (1 + deltaFrac)
-	naiveAfterX = (canvasX - CANVAS_WIDTH / 2) / newScale + config.center.x
-	naiveAfterY = (CANVAS_HEIGHT/2 - displayY) / newScale + config.center.y
-
-	targetAfterX = realBeforeX
-	targetAfterY = realBeforeY
-
-	naiveAfterX + adjustmentX = targetAfterX
-	naiveAfterY + adjustmentY = targetAfterY
-
-	(canvasX - CANVAS_WIDTH / 2) / newScale + config.center.x + adjustmentX
-	=
-	(canvasX - CANVAS_WIDTH / 2) / config.scale + config.center.x
-
-	(canvasX - CANVAS_WIDTH / 2) / newScale + adjustmentX
-	=
-	(canvasX - CANVAS_WIDTH / 2) / config.scale
-
-	adjustmentX =
-	(canvasX - CANVAS_WIDTH / 2) / config.scale
-	-
-	(canvasX - CANVAS_WIDTH / 2) / newScale
-	=
-	(canvasX - CANVAS_WIDTH / 2)(1/config.scale - 1/newScale)
-	=
-	(canvasX - CANVAS_WIDTH / 2)(1/config.scale - 1/(config.scale * (1 + deltaFrac)))
-	=
-	(canvasX - CANVAS_WIDTH / 2)B
-
-	B = 1/config.scale - 1/(config.scale * (1 + deltaFrac))
-	B = (1+deltaFrac)/config.scale/(1+deltaFrac) - 1/(config.scale * (1 + deltaFrac))
-	B = ((1+deltaFrac)-1)/(config.scale * (1+deltaFrac))
-	B = (deltaFrac)/(config.scale * (1+deltaFrac))
-
-	so you'd think 1756187115
-	const B = deltaFrac / (1 + deltaFrac) / config.scale
-	config.center.x += (canvasX - CANVAS_WIDTH / 2) * B;
-	config.center.y += (CANVAS_HEIGHT/2 - canvasY) * B;
-	I tried this and it's not correct but vaguely matching the behaviour you
-	want...
-	*/
-
-	const B = deltaFrac / (1 + deltaFrac) / config.scale;
-	config.center.x += (canvasX - CANVAS_WIDTH / 2) * B;
-	config.center.y += (CANVAS_HEIGHT / 2 - canvasY) * B;
-
-	config.scale *= 1 + deltaFrac;
-	displayIllusion2();
-};
-
-let onPanStart = (canvasX, canvasY) => {
-	// console.log(`Pan start at (${canvasX}, ${canvasY})`);
-};
-
-let onPanMove = (deltaX, deltaY) => {
-	deltaY *= -1;
-	// now it's cartesian
-
-	config.center.x -= deltaX / config.scale;
-	config.center.y -= deltaY / config.scale;
-
-	displayIllusion2();
-};
-
-let onPanEnd = () => {
-	// console.log("Pan end");
-};
-
-// Mouse wheel for zooming
-canvas.addEventListener("wheel", (e) => {
-	e.preventDefault();
-
-	const rect = canvas.getBoundingClientRect();
-	const canvasX = e.clientX - rect.left;
-	const canvasY = e.clientY - rect.top;
-
-	// Convert wheel delta to zoom percentage (adjust sensitivity as needed)
-	const zoomFrac = e.deltaY > 0 ? -0.1 : 0.1;
-
-	onZoom(zoomFrac, canvasX, canvasY);
-});
-
-// Mouse drag for panning
-let isPanning = false;
-let lastMouseX = 0;
-let lastMouseY = 0;
-
-canvas.addEventListener("mousedown", (e) => {
-	if (e.button === 0) {
-		// Left mouse button
-		isPanning = true;
-		const rect = canvas.getBoundingClientRect();
-		lastMouseX = e.clientX - rect.left;
-		lastMouseY = e.clientY - rect.top;
-
-		onPanStart(lastMouseX, lastMouseY);
+	function cartesianToCanvas(x, y, width, height) {
+		return {
+			x: x + width / 2,
+			y: height / 2 - y,
+		};
 	}
-});
 
-canvas.addEventListener("mousemove", (e) => {
-	if (isPanning) {
-		const rect = canvas.getBoundingClientRect();
-		const currentX = e.clientX - rect.left;
-		const currentY = e.clientY - rect.top;
-
-		const deltaX = currentX - lastMouseX;
-		const deltaY = currentY - lastMouseY;
-
-		onPanMove(deltaX, deltaY);
-
-		lastMouseX = currentX;
-		lastMouseY = currentY;
+	function canvasToCartesian(x, y, width, height) {
+		return {
+			x: x - width / 2,
+			y: height / 2 - y,
+		};
 	}
-});
 
-canvas.addEventListener("mouseup", (e) => {
-	if (e.button === 0 && isPanning) {
-		isPanning = false;
-		onPanEnd();
+	function init() {
+		const canvas = document.getElementById("curve-canvas");
+		const trailToggle = document.getElementById("trail-toggle");
+
+		const visualizer = new BezierVisualizer(canvas, {
+			width: CANVAS_WIDTH,
+			height: CANVAS_HEIGHT,
+			points: CONTROL_POINTS,
+			steps: BEZIER_STEPS,
+		});
+
+		if (trailToggle) {
+			visualizer.setTrailEnabled(trailToggle.checked);
+			trailToggle.addEventListener("change", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					visualizer.setTrailEnabled(input.checked);
+				}
+			});
+		}
 	}
-});
 
-canvas.addEventListener("mouseleave", () => {
-	if (isPanning) {
-		isPanning = false;
-		onPanEnd();
-	}
-});
-
-// Initialize patterns and start
-loadPatterns().then(() => {
-	main();
-});
-
-// Custom Cursor Implementation
-const cursorDot = document.querySelector(".cursor-dot");
-const cursorOutline = document.querySelector(".cursor-outline");
-
-let cursorX = 0;
-let cursorY = 0;
-let outlineX = 0;
-let outlineY = 0;
-
-// Track mouse position
-document.addEventListener("mousemove", (e) => {
-	cursorX = e.clientX;
-	cursorY = e.clientY;
-
-	// Immediate update for dot
-	cursorDot.style.left = cursorX + "px";
-	cursorDot.style.top = cursorY + "px";
-});
-
-// Smooth animation for outline
-function animateCursor() {
-	// Smooth follow effect for outline
-	outlineX += (cursorX - outlineX) * 0.15;
-	outlineY += (cursorY - outlineY) * 0.15;
-
-	cursorOutline.style.left = outlineX + "px";
-	cursorOutline.style.top = outlineY + "px";
-
-	requestAnimationFrame(animateCursor);
-}
-animateCursor();
-
-// Add hover effects for interactive elements
-// 1755190491 exclude canvas because it's too significant and would make this a default
-const hoverElements = document.querySelectorAll("a, button, select, textarea");
-
-hoverElements.forEach((element) => {
-	element.addEventListener("mouseenter", () => {
-		document.body.classList.add("cursor-hover");
-	});
-
-	element.addEventListener("mouseleave", () => {
-		document.body.classList.remove("cursor-hover");
-	});
-});
-
-// Click effects
-document.addEventListener("mousedown", () => {
-	document.body.classList.add("cursor-click");
-});
-
-document.addEventListener("mouseup", () => {
-	document.body.classList.remove("cursor-click");
-});
-
-// Hide cursor when it leaves the window
-document.addEventListener("mouseleave", () => {
-	cursorDot.style.opacity = "0";
-	cursorOutline.style.opacity = "0";
-});
-
-document.addEventListener("mouseenter", () => {
-	cursorDot.style.opacity = "1";
-	cursorOutline.style.opacity = "1";
-});
+	init();
+})();

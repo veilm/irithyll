@@ -1,62 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<link rel="stylesheet" href="style.css">
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Bezier Playground 2</title>
+		<style>
+			body {
+				margin: 0;
+				font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+				background-color: #050505;
+				color: #dc143c;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				min-height: 100vh;
+			}
 
-		<link
-			rel="icon"
-			href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>️🩸</text></svg>"
-		>
+			canvas {
+				border: 1px solid currentColor;
+				margin-top: 48px;
+			}
 
-		<!-- <link rel=preconnect href="https://fonts.googleapis.com"> -->
-		<!-- <link rel=preconnect href="https://fonts.gstatic.com" crossorigin> -->
-		<!-- <link rel=stylesheet href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap"> -->
+			.panel {
+				width: 100%;
+				max-width: 960px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 12px;
+				margin-top: 20px;
+			}
 
-		<!-- <link rel="preconnect" href="https://fonts.googleapis.com"> -->
-		<!-- <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> -->
-		<!-- <link href="https://fonts.googleapis.com/css2?family=Playwrite+AU+QLD:wght@100..400&display=swap" rel="stylesheet"> -->
+			.hud {
+				font-size: 0.95rem;
+				color: #fceaea;
+				text-align: center;
+			}
 
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link
-			href="https://fonts.googleapis.com/css2?family=Astloch:wght@400;700&family=Gabriela&family=Love+Light&family=Playwrite+AU+QLD:wght@100..400&display=swap"
-			rel="stylesheet"
-		>
+			.controls {
+				display: flex;
+				gap: 12px;
+				align-items: center;
+			}
+
+			.controls label {
+				display: flex;
+				gap: 6px;
+				align-items: center;
+				cursor: pointer;
+			}
+		</style>
 	</head>
 	<body>
-		<!-- Custom cursor elements -->
-		<div class="cursor-dot"></div>
-		<div class="cursor-outline"></div>
-
-		<div class="container">
-			<div id="sidebar">
-				<h1>
-					Irithyll <span style="font-size: 30px;">🩸</span>
-				</h1>
-				<p style="margin-bottom: 40px;">
-					<a href="https://github.com/veilm/irithyll">GitHub</a>
-				</p>
-
-				<!-- <button style="margin-top: 30px;">Clear (C-l)</button> -->
-
-				<!-- Pattern options populated from JS -->
-				<select id="pattern"></select>
-
-				<textarea
-					id="codeTextarea"
-					style="margin-top: 30px;"
-					placeholder="Your function..."
-					spellcheck="false"
-				></textarea>
-
-				<button class="keyboard-hint" id="drawButton">
-					Ctrl+Enter to Draw
-				</button>
+		<canvas id="curve-canvas"></canvas>
+		<div class="panel">
+			<div class="hud">
+				Drag the control points to reshape the curve.
 			</div>
-			<canvas id="canvas"></canvas>
+			<div class="controls">
+				<label>
+					<input type="checkbox" id="trail-toggle" checked />
+					Show scaffolding trails
+				</label>
+			</div>
 		</div>
-
-		<script src="pattern-list.js"></script>
-		<script src="main.js"></script>
+			<script src="main.js"></script>
 	</body>
 </html>
