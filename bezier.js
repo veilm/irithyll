@@ -69,10 +69,10 @@ const BEZIER_CONTROL_POINTS = [
 	{x: -250, y: 0},
 	{x: 0, y: 100},
 	{x: 50, y: 0},
-	// {x: 150, y: 0},
+	{x: 150, y: 100},
 ]
 
-const BEZIER_STEPS = 300;
+const BEZIER_STEPS = 600;
 
 const STATE = {
 	bezierStep: 0,
@@ -86,32 +86,48 @@ function renderControlPoints() {
 	})
 }
 
-function renderBezierStep() {
-	const t = STATE.bezierStep/BEZIER_STEPS
-
+function renderBezierStep(t, points, depth) {
 	const scaffolds = []
 
-	for (let i = 0; i < BEZIER_CONTROL_POINTS.length - 1; i++) {
-		const x1 = BEZIER_CONTROL_POINTS[i].x
-		const x2 = BEZIER_CONTROL_POINTS[i+1].x
-		const y1 = BEZIER_CONTROL_POINTS[i].y
-		const y2 = BEZIER_CONTROL_POINTS[i+1].y
+	for (let i = 0; i < points.length - 1; i++) {
+		const x1 = points[i].x
+		const x2 = points[i+1].x
+		const y1 = points[i].y
+		const y2 = points[i+1].y
 
 		const scaffoldX = (x2 - x1) * t + x1;
 		const scaffoldY = (y2 - y1) * t + y1;
-		setCoordinate(scaffoldX, scaffoldY, 0.5)
+
+		if (points.length == 2) setCoordinate(scaffoldX, scaffoldY, 1, 0, 0)
+		else setCoordinate(scaffoldX, scaffoldY, 0.5)
 
 		scaffolds.push({x: scaffoldX, y: scaffoldY})
 	}
 
-	const x1 = scaffolds[0].x
-	const x2 = scaffolds[1].x
-	const y1 = scaffolds[0].y
-	const y2 = scaffolds[1].y
-	const finalX = (x2 - x1) * t + x1;
-	const finalY = (y2 - y1) * t + y1;
-	setCoordinate(finalX, finalY, 1)
+	const newPoints = []
 
+	for (let i = 0; i < scaffolds.length - 1; i++) {
+		const x1 = scaffolds[i].x
+		const x2 = scaffolds[i+1].x
+		const y1 = scaffolds[i].y
+		const y2 = scaffolds[i+1].y
+
+		const newX = (x2 - x1) * t + x1;
+		const newY = (y2 - y1) * t + y1;
+		newPoints.push({x: newX, y: newY})
+
+		setCoordinate(newX, newY, 0.75)
+	}
+
+	if (newPoints.length > 1) {
+		renderBezierStep(t, newPoints, depth+1)
+	}
+}
+
+function renderBezierFullStep() {
+	const t = STATE.bezierStep/BEZIER_STEPS
+
+	renderBezierStep(t, BEZIER_CONTROL_POINTS, 0)
 	renderControlPoints()
 
 	ctx.putImageData(STATE.frame, 0, 0);
@@ -123,7 +139,7 @@ function init() {
 
 	clearScreen();
 
-	renderBezierStep()
+	renderBezierFullStep()
 
 	// draw the frame
 	ctx.putImageData(STATE.frame, 0, 0);
@@ -135,7 +151,7 @@ document.addEventListener("keydown", (e) => {
 		STATE.bezierStep += 1
 		document.getElementById("step").innerHTML = STATE.bezierStep
 
-		renderBezierStep()
+		renderBezierFullStep()
 	}
 });
 
