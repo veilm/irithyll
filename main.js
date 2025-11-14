@@ -14,8 +14,8 @@
 	const DUPLICATE_OFFSET = Object.freeze({x: 20, y: 0});
 	const MIN_CONTROL_POINTS = 2;
 	const CURVE_SUPERSAMPLES = 4;
-	const CURVE_SOFT_RADIUS = 2;
-	const CURVE_SOFT_INTENSITY = 0.2;
+	const DEFAULT_CURVE_SOFT_RADIUS = 2;
+	const DEFAULT_CURVE_SOFT_INTENSITY = 0.4;
 	const SCAFFOLD_GRADIENT = Object.freeze({
 		start: [Math.round(255 * 0.1), Math.round(255 * 0.1), Math.round(255 * 0.1)],
 		mid: [255, 255, 255],
@@ -126,6 +126,8 @@
 			this.points = options.points.map(point => ({...point}));
 			this.sampleCount = Math.max(1, options.steps ?? 1);
 			this.curveSupersamples = Math.max(1, options.curveSupersamples ?? 1);
+			this.curveSoftRadius = Math.max(0.1, options.curveSoftRadius ?? DEFAULT_CURVE_SOFT_RADIUS);
+			this.curveSoftIntensity = clamp01(options.curveSoftIntensity ?? DEFAULT_CURVE_SOFT_INTENSITY);
 			this.selectedIndex = null;
 			this.dragPointerId = null;
 			this.duplicateButton = options.duplicateButton ?? null;
@@ -194,8 +196,8 @@
 						point.x,
 						point.y,
 						COLORS.result,
-						CURVE_SOFT_RADIUS,
-						CURVE_SOFT_INTENSITY
+						this.curveSoftRadius,
+						this.curveSoftIntensity
 					);
 				}
 			}
@@ -272,6 +274,20 @@
 			const clamped = Math.max(1, Math.floor(count));
 			if (clamped === this.sampleCount) return;
 			this.sampleCount = clamped;
+			this.render();
+		}
+
+		setCurveSoftRadius(radius) {
+			const normalized = Math.max(0.1, Number(radius) || 0);
+			if (Math.abs(normalized - this.curveSoftRadius) < 1e-3) return;
+			this.curveSoftRadius = normalized;
+			this.render();
+		}
+
+		setCurveSoftIntensity(intensity) {
+			const normalized = clamp01(Number(intensity) || 0);
+			if (Math.abs(normalized - this.curveSoftIntensity) < 1e-3) return;
+			this.curveSoftIntensity = normalized;
 			this.render();
 		}
 
@@ -434,6 +450,11 @@
 		return current[0] ?? null;
 	}
 
+	function clamp01(value) {
+		if (!Number.isFinite(value)) return 0;
+		return Math.min(1, Math.max(0, value));
+	}
+
 	function cartesianToCanvas(x, y, width, height) {
 		return {
 			x: x + width / 2,
@@ -472,6 +493,10 @@
 		const trailToggle = document.getElementById("trail-toggle");
 		const stepsSlider = document.getElementById("steps-slider");
 		const stepsValue = document.getElementById("steps-value");
+		const softRadiusSlider = document.getElementById("soft-radius-slider");
+		const softRadiusValue = document.getElementById("soft-radius-value");
+		const softIntensitySlider = document.getElementById("soft-intensity-slider");
+		const softIntensityValue = document.getElementById("soft-intensity-value");
 		const duplicateButton = document.getElementById("duplicate-point");
 		const deleteButton = document.getElementById("delete-point");
 
@@ -481,6 +506,8 @@
 			points: CONTROL_POINTS,
 			steps: BEZIER_STEPS,
 			curveSupersamples: CURVE_SUPERSAMPLES,
+			curveSoftRadius: DEFAULT_CURVE_SOFT_RADIUS,
+			curveSoftIntensity: DEFAULT_CURVE_SOFT_INTENSITY,
 			duplicateButton,
 			deleteButton,
 		});
@@ -521,6 +548,44 @@
 				const input = event.currentTarget;
 				if (input instanceof HTMLInputElement) {
 					syncSampleControls(input.value);
+				}
+			});
+		}
+
+		if (softRadiusSlider instanceof HTMLInputElement) {
+			const syncSoftRadius = value => {
+				const normalized = Math.max(0.1, Number(value));
+				if (softRadiusValue) {
+					softRadiusValue.textContent = normalized.toFixed(1);
+				}
+				visualizer.setCurveSoftRadius(normalized);
+			};
+
+			softRadiusSlider.value = String(visualizer.curveSoftRadius);
+			syncSoftRadius(softRadiusSlider.value);
+			softRadiusSlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					syncSoftRadius(input.value);
+				}
+			});
+		}
+
+		if (softIntensitySlider instanceof HTMLInputElement) {
+			const syncSoftIntensity = value => {
+				const normalized = clamp01(Number(value));
+				if (softIntensityValue) {
+					softIntensityValue.textContent = normalized.toFixed(2);
+				}
+				visualizer.setCurveSoftIntensity(normalized);
+			};
+
+			softIntensitySlider.value = String(visualizer.curveSoftIntensity);
+			syncSoftIntensity(softIntensitySlider.value);
+			softIntensitySlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					syncSoftIntensity(input.value);
 				}
 			});
 		}
