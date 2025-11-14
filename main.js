@@ -108,11 +108,22 @@
 		blendPixel(px, py, color, alpha) {
 			if (alpha <= 0) return;
 			const offset = 4 * (py * this.width + px);
-			const invAlpha = 1 - alpha;
-			this.data[offset + 0] = Math.round(this.data[offset + 0] * invAlpha + color[0] * alpha);
-			this.data[offset + 1] = Math.round(this.data[offset + 1] * invAlpha + color[1] * alpha);
-			this.data[offset + 2] = Math.round(this.data[offset + 2] * invAlpha + color[2] * alpha);
-			this.data[offset + 3] = Math.max(this.data[offset + 3], color[3]);
+			const srcAlpha = clamp01(alpha * (color[3] / 255));
+			const dstAlpha = this.data[offset + 3] / 255;
+			const outAlpha = srcAlpha + dstAlpha * (1 - srcAlpha);
+			if (outAlpha <= 0) {
+				return;
+			}
+			const blendChannel = channel => {
+				const src = color[channel] / 255;
+				const dst = this.data[offset + channel] / 255;
+				const out = (src * srcAlpha + dst * dstAlpha * (1 - srcAlpha)) / outAlpha;
+				this.data[offset + channel] = Math.round(out * 255);
+			};
+			blendChannel(0);
+			blendChannel(1);
+			blendChannel(2);
+			this.data[offset + 3] = Math.round(outAlpha * 255);
 		}
 
 		flush(backgroundImage = null, backgroundOpacity = 1) {
