@@ -38,31 +38,120 @@
 			}
 
 			.controls {
+				width: 100%;
 				display: flex;
-				gap: 12px;
-				align-items: center;
-				flex-wrap: wrap;
+				flex-direction: column;
+				gap: 16px;
 			}
 
-			.controls label {
+			.control-section {
 				display: flex;
-				gap: 6px;
+				flex-direction: column;
+				gap: 10px;
+				padding: 12px 16px;
+				border: 1px solid rgba(220, 20, 60, 0.45);
+				border-radius: 10px;
+				background: rgba(255, 255, 255, 0.02);
+			}
+
+			.section-title {
+				text-transform: uppercase;
+				font-size: 0.75rem;
+				letter-spacing: 0.08em;
+				color: rgba(252, 234, 234, 0.7);
+			}
+
+			.toggle-control {
+				display: flex;
+				gap: 10px;
 				align-items: center;
 				cursor: pointer;
 			}
 
+			.slider-control {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+
+			.slider-label-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 0.85rem;
+				color: rgba(252, 234, 234, 0.85);
+			}
+
+			.slider-value {
+				font-variant-numeric: tabular-nums;
+				font-weight: 600;
+			}
+
+			.controls input[type="checkbox"] {
+				width: 18px;
+				height: 18px;
+				accent-color: #ff355e;
+			}
+
+			.controls input[type="range"] {
+				appearance: none;
+				width: 100%;
+				height: 4px;
+				border-radius: 999px;
+				background: linear-gradient(90deg, #4b050f, #dc143c 60%, #ff5470);
+				outline: none;
+			}
+
+			.controls input[type="range"]::-webkit-slider-thumb {
+				appearance: none;
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: #fceaea;
+				border: 2px solid #dc143c;
+				box-shadow: 0 0 8px rgba(220, 20, 60, 0.6);
+				cursor: grab;
+			}
+
+			.controls input[type="range"]::-moz-range-thumb {
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: #fceaea;
+				border: 2px solid #dc143c;
+				box-shadow: 0 0 8px rgba(220, 20, 60, 0.6);
+				cursor: grab;
+			}
+
+			.controls input[type="range"]::-moz-range-track {
+				background: transparent;
+			}
+
 			.controls button {
 				background: transparent;
-				border: 1px solid currentColor;
-				color: inherit;
+				border: 1px solid rgba(220, 20, 60, 0.8);
+				color: #fceaea;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
 				padding: 6px 12px;
 				border-radius: 4px;
+				transition: background 120ms ease, color 120ms ease;
 				cursor: pointer;
 			}
 
 			.controls button:disabled {
 				opacity: 0.35;
 				cursor: not-allowed;
+			}
+
+			.controls button:not(:disabled):hover {
+				background: rgba(220, 20, 60, 0.15);
+			}
+
+			.action-buttons {
+				display: flex;
+				gap: 12px;
+				flex-wrap: wrap;
 			}
 		</style>
 	</head>
@@ -73,41 +162,61 @@
 				Drag the control points to reshape the curve.
 			</div>
 			<div class="controls">
-				<label>
-					<input type="checkbox" id="trail-toggle" checked />
-					Show scaffolding trails
-				</label>
-				<label>
-					<span>Curve samples</span>
-					<input type="range" id="steps-slider" min="50" max="3000" step="50" value="1000" />
-					<span id="steps-value">1000</span>
-				</label>
-				<label>
-					<span>Soft radius</span>
-					<input
-						type="range"
-						id="soft-radius-slider"
-						min="0.5"
-						max="6"
-						step="0.1"
-						value="2"
-					/>
-					<span id="soft-radius-value">2.0</span>
-				</label>
-				<label>
-					<span>Soft intensity</span>
-					<input
-						type="range"
-						id="soft-intensity-slider"
-						min="0.05"
-						max="1"
-						step="0.05"
-						value="0.2"
-					/>
-					<span id="soft-intensity-value">0.20</span>
-				</label>
-				<button id="duplicate-point" disabled>Duplicate selected point</button>
-				<button id="delete-point" disabled>Delete selected point</button>
+				<div class="control-section">
+					<div class="section-title">Points</div>
+					<div class="action-buttons">
+						<button id="duplicate-point" disabled>Duplicate selected point</button>
+						<button id="delete-point" disabled>Delete selected point</button>
+					</div>
+				</div>
+				<div class="control-section">
+					<div class="section-title">Sampling</div>
+					<label class="slider-control">
+						<div class="slider-label-row">
+							<span>Curve samples</span>
+							<span id="steps-value" class="slider-value">1000</span>
+						</div>
+						<input type="range" id="steps-slider" min="50" max="3000" step="50" value="1000" />
+					</label>
+				</div>
+				<div class="control-section">
+					<div class="section-title">Curve softness</div>
+					<label class="slider-control">
+						<div class="slider-label-row">
+							<span>Soft radius</span>
+							<span id="soft-radius-value" class="slider-value">2.0</span>
+						</div>
+						<input
+							type="range"
+							id="soft-radius-slider"
+							min="0.5"
+							max="6"
+							step="0.1"
+							value="2"
+						/>
+					</label>
+					<label class="slider-control">
+						<div class="slider-label-row">
+							<span>Soft intensity</span>
+							<span id="soft-intensity-value" class="slider-value">0.40</span>
+						</div>
+						<input
+							type="range"
+							id="soft-intensity-slider"
+							min="0.05"
+							max="1"
+							step="0.05"
+							value="0.4"
+						/>
+					</label>
+				</div>
+				<div class="control-section">
+					<div class="section-title">Display</div>
+					<label class="toggle-control">
+						<input type="checkbox" id="trail-toggle" checked />
+						<span>Show scaffolding trails</span>
+					</label>
+				</div>
 			</div>
 		</div>
 		<script src="main.js"></script>
