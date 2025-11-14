@@ -206,6 +206,46 @@
 						</label>
 						<button id="clear-reference" disabled>Clear</button>
 					</div>
+					<div class="reference-controls">
+						<label class="toggle-control">
+							<input type="checkbox" id="reference-flip-x" disabled />
+							<span>Flip horizontally</span>
+						</label>
+						<label class="toggle-control">
+							<input type="checkbox" id="reference-flip-y" disabled />
+							<span>Flip vertically</span>
+						</label>
+					</div>
+					<label class="slider-control">
+						<div class="slider-label-row">
+							<span>Pan X</span>
+							<span id="reference-pan-x-value" class="slider-value">0px</span>
+						</div>
+						<input
+							type="range"
+							id="reference-pan-x"
+							min="-400"
+							max="400"
+							step="5"
+							value="0"
+							disabled
+						/>
+					</label>
+					<label class="slider-control">
+						<div class="slider-label-row">
+							<span>Pan Y</span>
+							<span id="reference-pan-y-value" class="slider-value">0px</span>
+						</div>
+						<input
+							type="range"
+							id="reference-pan-y"
+							min="-400"
+							max="400"
+							step="5"
+							value="0"
+							disabled
+						/>
+					</label>
 					<label class="slider-control">
 						<div class="slider-label-row">
 							<span>Opacity</span>

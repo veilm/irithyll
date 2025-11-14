@@ -17,6 +17,7 @@
 	const DEFAULT_CURVE_SOFT_RADIUS = 2;
 	const DEFAULT_CURVE_SOFT_INTENSITY = 0.4;
 	const DEFAULT_REFERENCE_OPACITY = 0.6;
+	const DEFAULT_REFERENCE_OFFSET = Object.freeze({x: 0, y: 0});
 	const SCAFFOLD_GRADIENT = Object.freeze({
 		start: [Math.round(255 * 0.1), Math.round(255 * 0.1), Math.round(255 * 0.1)],
 		mid: [255, 255, 255],
@@ -126,19 +127,33 @@
 			this.data[offset + 3] = Math.round(outAlpha * 255);
 		}
 
-		flush(backgroundImage = null, backgroundOpacity = 1) {
+		flush(referenceLayer = null) {
 			this.ctx.clearRect(0, 0, this.width, this.height);
 			this.ctx.putImageData(this.frame, 0, 0);
-			if (backgroundImage) {
-				const clampedOpacity = clamp01(backgroundOpacity);
-				if (clampedOpacity > 0) {
-					this.ctx.save();
-					this.ctx.globalAlpha = clampedOpacity;
-					this.ctx.globalCompositeOperation = "destination-over";
-					this.ctx.drawImage(backgroundImage, 0, 0, this.width, this.height);
-					this.ctx.restore();
-				}
+			if (referenceLayer) {
+				this.drawReferenceLayer(referenceLayer);
 			}
+		}
+
+		drawReferenceLayer(layer) {
+			const {image, width, height} = layer;
+			if (!image || !width || !height) return;
+			const opacity = clamp01(layer.opacity);
+			if (opacity <= 0) return;
+			const fit = computeContainFit(width, height, this.width, this.height);
+			const offsetX = layer.offsetX ?? 0;
+			const offsetY = layer.offsetY ?? 0;
+			const drawX = fit.x + offsetX;
+			const drawY = fit.y + offsetY;
+			const flipX = layer.flipX ? -1 : 1;
+			const flipY = layer.flipY ? -1 : 1;
+			this.ctx.save();
+			this.ctx.globalAlpha = opacity;
+			this.ctx.globalCompositeOperation = "destination-over";
+			this.ctx.translate(drawX + fit.width / 2, drawY + fit.height / 2);
+			this.ctx.scale(flipX, flipY);
+			this.ctx.drawImage(image, -fit.width / 2, -fit.height / 2, fit.width, fit.height);
+			this.ctx.restore();
 		}
 	}
 
@@ -154,6 +169,9 @@
 			this.referenceImage = null;
 			this.referenceOpacity = clamp01(options.referenceOpacity ?? DEFAULT_REFERENCE_OPACITY);
 			this.referenceVisible = false;
+			this.referenceFlipX = false;
+			this.referenceFlipY = false;
+			this.referenceOffset = {...DEFAULT_REFERENCE_OFFSET};
 			this.selectedIndex = null;
 			this.dragPointerId = null;
 			this.duplicateButton = options.duplicateButton ?? null;
@@ -208,8 +226,19 @@
 			this.drawSupersampledCurve(samples);
 
 			this.drawControlPoints();
-			const backgroundImage = this.referenceVisible ? this.referenceImage : null;
-			this.buffer.flush(backgroundImage, this.referenceOpacity);
+			const backgroundLayer = this.referenceVisible && this.referenceImage
+				? {
+					image: this.referenceImage.image,
+					width: this.referenceImage.width,
+					height: this.referenceImage.height,
+					opacity: this.referenceOpacity,
+					flipX: this.referenceFlipX,
+					flipY: this.referenceFlipY,
+					offsetX: this.referenceOffset.x,
+					offsetY: this.referenceOffset.y,
+				}
+				: null;
+			this.buffer.flush(backgroundLayer);
 		}
 
 		drawSupersampledCurve(baseSamples) {
@@ -305,7 +334,7 @@
 		}
 
 		hasReferenceImage() {
-			return Boolean(this.referenceImage);
+			return Boolean(this.referenceImage?.image);
 		}
 
 		async loadReferenceFile(file) {
@@ -323,21 +352,29 @@
 		setReferenceImage(image) {
 			if (!image) return;
 			this.releaseReferenceImage();
-			this.referenceImage = image;
+			const dimensions = getImageDimensions(image);
+			this.referenceImage = {
+				image,
+				width: dimensions.width,
+				height: dimensions.height,
+			};
 			this.referenceVisible = true;
+			this.resetReferenceTransform();
 			this.render();
 		}
 
 		clearReferenceImage() {
-			if (!this.referenceImage) return;
-			this.releaseReferenceImage();
+			if (this.referenceImage) {
+				this.releaseReferenceImage();
+			}
 			this.referenceVisible = false;
+			this.resetReferenceTransform();
 			this.render();
 		}
 
 		releaseReferenceImage() {
-			if (this.referenceImage && typeof this.referenceImage.close === "function") {
-				this.referenceImage.close();
+			if (this.referenceImage?.image && typeof this.referenceImage.image.close === "function") {
+				this.referenceImage.image.close();
 			}
 			this.referenceImage = null;
 		}
@@ -355,6 +392,40 @@
 			if (Math.abs(normalized - this.referenceOpacity) < 1e-3) return;
 			this.referenceOpacity = normalized;
 			this.render();
+		}
+
+		setReferenceFlipX(enabled) {
+			const next = Boolean(enabled);
+			if (this.referenceFlipX === next) return;
+			this.referenceFlipX = next;
+			if (this.hasReferenceImage()) {
+				this.render();
+			}
+		}
+
+		setReferenceFlipY(enabled) {
+			const next = Boolean(enabled);
+			if (this.referenceFlipY === next) return;
+			this.referenceFlipY = next;
+			if (this.hasReferenceImage()) {
+				this.render();
+			}
+		}
+
+		setReferenceOffset(axis, value) {
+			if (!(axis === "x" || axis === "y")) return;
+			const normalized = Number(value) || 0;
+			if (Math.abs(normalized - this.referenceOffset[axis]) < 0.1) return;
+			this.referenceOffset[axis] = normalized;
+			if (this.hasReferenceImage()) {
+				this.render();
+			}
+		}
+
+		resetReferenceTransform() {
+			this.referenceFlipX = false;
+			this.referenceFlipY = false;
+			this.referenceOffset = {...DEFAULT_REFERENCE_OFFSET};
 		}
 
 		setCurveSoftRadius(radius) {
@@ -570,6 +641,28 @@
 		});
 	}
 
+	function getImageDimensions(image) {
+		if (!image) return {width: 0, height: 0};
+		const width = image.width ?? image.naturalWidth ?? image.videoWidth ?? 0;
+		const height = image.height ?? image.naturalHeight ?? image.videoHeight ?? 0;
+		return {width, height};
+	}
+
+	function computeContainFit(srcWidth, srcHeight, dstWidth, dstHeight) {
+		if (srcWidth <= 0 || srcHeight <= 0) {
+			return {width: dstWidth, height: dstHeight, x: 0, y: 0};
+		}
+		const scale = Math.min(dstWidth / srcWidth, dstHeight / srcHeight);
+		const width = srcWidth * scale;
+		const height = srcHeight * scale;
+		return {
+			width,
+			height,
+			x: (dstWidth - width) / 2,
+			y: (dstHeight - height) / 2,
+		};
+	}
+
 	function cartesianToCanvas(x, y, width, height) {
 		return {
 			x: x + width / 2,
@@ -611,8 +704,14 @@
 		const referenceInput = document.getElementById("reference-input");
 		const referenceFileName = document.getElementById("reference-file-name");
 		const referenceToggle = document.getElementById("reference-toggle");
+		const referenceFlipXToggle = document.getElementById("reference-flip-x");
+		const referenceFlipYToggle = document.getElementById("reference-flip-y");
 		const referenceOpacitySlider = document.getElementById("reference-opacity");
 		const referenceOpacityValue = document.getElementById("reference-opacity-value");
+		const referencePanXSlider = document.getElementById("reference-pan-x");
+		const referencePanXValue = document.getElementById("reference-pan-x-value");
+		const referencePanYSlider = document.getElementById("reference-pan-y");
+		const referencePanYValue = document.getElementById("reference-pan-y-value");
 		const clearReferenceButton = document.getElementById("clear-reference");
 		const softRadiusSlider = document.getElementById("soft-radius-slider");
 		const softRadiusValue = document.getElementById("soft-radius-value");
@@ -712,19 +811,71 @@
 			});
 		}
 
+		const setElementDisabled = (element, disabled) => {
+			if (!element) return;
+			element.disabled = disabled;
+		};
+
+		const formatPixels = value => `${Math.round(value)}px`;
+
+		const syncReferenceTransformUi = () => {
+			if (referenceFlipXToggle instanceof HTMLInputElement) {
+				referenceFlipXToggle.checked = visualizer.referenceFlipX;
+			}
+			if (referenceFlipYToggle instanceof HTMLInputElement) {
+				referenceFlipYToggle.checked = visualizer.referenceFlipY;
+			}
+			if (referencePanXSlider instanceof HTMLInputElement) {
+				referencePanXSlider.value = String(visualizer.referenceOffset.x);
+			}
+			if (referencePanXValue) {
+				referencePanXValue.textContent = formatPixels(visualizer.referenceOffset.x);
+			}
+			if (referencePanYSlider instanceof HTMLInputElement) {
+				referencePanYSlider.value = String(visualizer.referenceOffset.y);
+			}
+			if (referencePanYValue) {
+				referencePanYValue.textContent = formatPixels(visualizer.referenceOffset.y);
+			}
+		};
+
+		const resetReferenceTransformDisplays = () => {
+			if (referenceFlipXToggle instanceof HTMLInputElement) {
+				referenceFlipXToggle.checked = false;
+			}
+			if (referenceFlipYToggle instanceof HTMLInputElement) {
+				referenceFlipYToggle.checked = false;
+			}
+			if (referencePanXSlider instanceof HTMLInputElement) {
+				referencePanXSlider.value = "0";
+			}
+			if (referencePanXValue) {
+				referencePanXValue.textContent = formatPixels(0);
+			}
+			if (referencePanYSlider instanceof HTMLInputElement) {
+				referencePanYSlider.value = "0";
+			}
+			if (referencePanYValue) {
+				referencePanYValue.textContent = formatPixels(0);
+			}
+		};
+
 		const updateReferenceUiState = () => {
 			const hasImage = visualizer.hasReferenceImage();
+			setElementDisabled(referenceToggle, !hasImage);
+			setElementDisabled(referenceOpacitySlider, !hasImage);
+			setElementDisabled(clearReferenceButton, !hasImage);
+			setElementDisabled(referenceFlipXToggle, !hasImage);
+			setElementDisabled(referenceFlipYToggle, !hasImage);
+			setElementDisabled(referencePanXSlider, !hasImage);
+			setElementDisabled(referencePanYSlider, !hasImage);
 			if (referenceToggle instanceof HTMLInputElement) {
-				referenceToggle.disabled = !hasImage;
-				if (!hasImage) {
-					referenceToggle.checked = false;
-				}
+				referenceToggle.checked = hasImage && visualizer.referenceVisible;
 			}
-			if (referenceOpacitySlider instanceof HTMLInputElement) {
-				referenceOpacitySlider.disabled = !hasImage;
-			}
-			if (clearReferenceButton instanceof HTMLButtonElement) {
-				clearReferenceButton.disabled = !hasImage;
+			if (hasImage) {
+				syncReferenceTransformUi();
+			} else {
+				resetReferenceTransformDisplays();
 			}
 		};
 
@@ -733,6 +884,24 @@
 				const input = event.currentTarget;
 				if (input instanceof HTMLInputElement) {
 					visualizer.setReferenceVisibility(input.checked);
+				}
+			});
+		}
+
+		if (referenceFlipXToggle instanceof HTMLInputElement) {
+			referenceFlipXToggle.addEventListener("change", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					visualizer.setReferenceFlipX(input.checked);
+				}
+			});
+		}
+
+		if (referenceFlipYToggle instanceof HTMLInputElement) {
+			referenceFlipYToggle.addEventListener("change", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					visualizer.setReferenceFlipY(input.checked);
 				}
 			});
 		}
@@ -756,6 +925,34 @@
 			});
 		}
 
+		const applyReferencePanValue = (axis, value, valueLabel) => {
+			const numeric = Number(value) || 0;
+			if (valueLabel) {
+				valueLabel.textContent = formatPixels(numeric);
+			}
+			visualizer.setReferenceOffset(axis, numeric);
+		};
+
+		if (referencePanXSlider instanceof HTMLInputElement) {
+			referencePanXSlider.value = "0";
+			referencePanXSlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					applyReferencePanValue("x", input.value, referencePanXValue);
+				}
+			});
+		}
+
+		if (referencePanYSlider instanceof HTMLInputElement) {
+			referencePanYSlider.value = "0";
+			referencePanYSlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					applyReferencePanValue("y", input.value, referencePanYValue);
+				}
+			});
+		}
+
 		if (referenceInput instanceof HTMLInputElement) {
 			referenceInput.addEventListener("change", async () => {
 				const files = referenceInput.files;
@@ -773,10 +970,11 @@
 						referenceToggle.checked = true;
 						visualizer.setReferenceVisibility(true);
 					}
-				if (referenceOpacitySlider instanceof HTMLInputElement) {
-					referenceOpacitySlider.value = String(visualizer.referenceOpacity);
-					applyReferenceOpacityValue(referenceOpacitySlider.value);
-				}
+					if (referenceOpacitySlider instanceof HTMLInputElement) {
+						referenceOpacitySlider.value = String(visualizer.referenceOpacity);
+						applyReferenceOpacityValue(referenceOpacitySlider.value);
+					}
+					syncReferenceTransformUi();
 				} else if (referenceFileName) {
 					referenceFileName.textContent = "Failed to load image";
 				}
@@ -801,6 +999,7 @@
 					referenceOpacitySlider.value = String(DEFAULT_REFERENCE_OPACITY);
 					applyReferenceOpacityValue(referenceOpacitySlider.value);
 				}
+				resetReferenceTransformDisplays();
 				updateReferenceUiState();
 			});
 		}
