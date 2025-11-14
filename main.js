@@ -18,6 +18,9 @@
 	const DEFAULT_CURVE_SOFT_INTENSITY = 0.4;
 	const DEFAULT_REFERENCE_OPACITY = 0.6;
 	const DEFAULT_REFERENCE_OFFSET = Object.freeze({x: 0, y: 0});
+	const DEFAULT_REFERENCE_ZOOM = 1;
+	const MIN_REFERENCE_ZOOM = 0.2;
+	const MAX_REFERENCE_ZOOM = 3;
 	const SCAFFOLD_GRADIENT = Object.freeze({
 		start: [Math.round(255 * 0.1), Math.round(255 * 0.1), Math.round(255 * 0.1)],
 		mid: [255, 255, 255],
@@ -140,7 +143,8 @@
 			if (!image || !width || !height) return;
 			const opacity = clamp01(layer.opacity);
 			if (opacity <= 0) return;
-			const fit = computeContainFit(width, height, this.width, this.height);
+			const zoom = layer.zoom ?? 1;
+			const fit = computeContainFit(width, height, this.width, this.height, zoom);
 			const offsetX = layer.offsetX ?? 0;
 			const offsetY = layer.offsetY ?? 0;
 			const drawX = fit.x + offsetX;
@@ -172,6 +176,12 @@
 			this.referenceFlipX = false;
 			this.referenceFlipY = false;
 			this.referenceOffset = {...DEFAULT_REFERENCE_OFFSET};
+			this.referenceZoom = DEFAULT_REFERENCE_ZOOM;
+			this.referenceZoom = clamp(
+				options.referenceZoom ?? DEFAULT_REFERENCE_ZOOM,
+				MIN_REFERENCE_ZOOM,
+				MAX_REFERENCE_ZOOM
+			);
 			this.selectedIndex = null;
 			this.dragPointerId = null;
 			this.duplicateButton = options.duplicateButton ?? null;
@@ -236,6 +246,7 @@
 					flipY: this.referenceFlipY,
 					offsetX: this.referenceOffset.x,
 					offsetY: this.referenceOffset.y,
+					zoom: this.referenceZoom,
 				}
 				: null;
 			this.buffer.flush(backgroundLayer);
@@ -417,6 +428,15 @@
 			const normalized = Number(value) || 0;
 			if (Math.abs(normalized - this.referenceOffset[axis]) < 0.1) return;
 			this.referenceOffset[axis] = normalized;
+			if (this.hasReferenceImage()) {
+				this.render();
+			}
+		}
+
+		setReferenceZoom(value) {
+			const normalized = clamp(value, MIN_REFERENCE_ZOOM, MAX_REFERENCE_ZOOM);
+			if (Math.abs(normalized - this.referenceZoom) < 1e-3) return;
+			this.referenceZoom = normalized;
 			if (this.hasReferenceImage()) {
 				this.render();
 			}
@@ -606,6 +626,13 @@
 		return Math.min(1, Math.max(0, value));
 	}
 
+	function clamp(value, min, max) {
+		if (!Number.isFinite(value)) return min;
+		const lower = Math.min(min, max);
+		const upper = Math.max(min, max);
+		return Math.min(upper, Math.max(lower, value));
+	}
+
 	async function loadImageFromFile(file) {
 		if (!file) {
 			throw new Error("No file provided");
@@ -648,11 +675,12 @@
 		return {width, height};
 	}
 
-	function computeContainFit(srcWidth, srcHeight, dstWidth, dstHeight) {
+	function computeContainFit(srcWidth, srcHeight, dstWidth, dstHeight, scaleOverride = 1) {
 		if (srcWidth <= 0 || srcHeight <= 0) {
 			return {width: dstWidth, height: dstHeight, x: 0, y: 0};
 		}
-		const scale = Math.min(dstWidth / srcWidth, dstHeight / srcHeight);
+		const containScale = Math.min(dstWidth / srcWidth, dstHeight / srcHeight);
+		const scale = containScale * Math.max(MIN_REFERENCE_ZOOM, scaleOverride);
 		const width = srcWidth * scale;
 		const height = srcHeight * scale;
 		return {
@@ -708,6 +736,8 @@
 		const referenceFlipYToggle = document.getElementById("reference-flip-y");
 		const referenceOpacitySlider = document.getElementById("reference-opacity");
 		const referenceOpacityValue = document.getElementById("reference-opacity-value");
+		const referenceZoomSlider = document.getElementById("reference-zoom");
+		const referenceZoomValue = document.getElementById("reference-zoom-value");
 		const referencePanXSlider = document.getElementById("reference-pan-x");
 		const referencePanXValue = document.getElementById("reference-pan-x-value");
 		const referencePanYSlider = document.getElementById("reference-pan-y");
@@ -729,6 +759,7 @@
 			curveSoftRadius: DEFAULT_CURVE_SOFT_RADIUS,
 			curveSoftIntensity: DEFAULT_CURVE_SOFT_INTENSITY,
 			referenceOpacity: DEFAULT_REFERENCE_OPACITY,
+			referenceZoom: DEFAULT_REFERENCE_ZOOM,
 			duplicateButton,
 			deleteButton,
 		});
@@ -825,6 +856,12 @@
 			if (referenceFlipYToggle instanceof HTMLInputElement) {
 				referenceFlipYToggle.checked = visualizer.referenceFlipY;
 			}
+			if (referenceZoomSlider instanceof HTMLInputElement) {
+				referenceZoomSlider.value = visualizer.referenceZoom.toFixed(2);
+			}
+			if (referenceZoomValue) {
+				referenceZoomValue.textContent = visualizer.referenceZoom.toFixed(2);
+			}
 			if (referencePanXSlider instanceof HTMLInputElement) {
 				referencePanXSlider.value = String(visualizer.referenceOffset.x);
 			}
@@ -845,6 +882,12 @@
 			}
 			if (referenceFlipYToggle instanceof HTMLInputElement) {
 				referenceFlipYToggle.checked = false;
+			}
+			if (referenceZoomSlider instanceof HTMLInputElement) {
+				referenceZoomSlider.value = DEFAULT_REFERENCE_ZOOM.toFixed(2);
+			}
+			if (referenceZoomValue) {
+				referenceZoomValue.textContent = DEFAULT_REFERENCE_ZOOM.toFixed(2);
 			}
 			if (referencePanXSlider instanceof HTMLInputElement) {
 				referencePanXSlider.value = "0";
@@ -867,6 +910,7 @@
 			setElementDisabled(clearReferenceButton, !hasImage);
 			setElementDisabled(referenceFlipXToggle, !hasImage);
 			setElementDisabled(referenceFlipYToggle, !hasImage);
+			setElementDisabled(referenceZoomSlider, !hasImage);
 			setElementDisabled(referencePanXSlider, !hasImage);
 			setElementDisabled(referencePanYSlider, !hasImage);
 			if (referenceToggle instanceof HTMLInputElement) {
@@ -921,6 +965,29 @@
 				const input = event.currentTarget;
 				if (input instanceof HTMLInputElement) {
 					applyReferenceOpacityValue(input.value);
+				}
+			});
+		}
+
+		const clampZoomValue = value => clamp(value, MIN_REFERENCE_ZOOM, MAX_REFERENCE_ZOOM);
+		const applyReferenceZoomValue = value => {
+			const normalized = clampZoomValue(Number(value));
+			if (referenceZoomValue) {
+				referenceZoomValue.textContent = normalized.toFixed(2);
+			}
+			visualizer.setReferenceZoom(normalized);
+		};
+
+		if (referenceZoomSlider instanceof HTMLInputElement) {
+			referenceZoomSlider.min = String(MIN_REFERENCE_ZOOM);
+			referenceZoomSlider.max = String(MAX_REFERENCE_ZOOM);
+			referenceZoomSlider.step = "0.05";
+			referenceZoomSlider.value = DEFAULT_REFERENCE_ZOOM.toFixed(2);
+			applyReferenceZoomValue(referenceZoomSlider.value);
+			referenceZoomSlider.addEventListener("input", event => {
+				const input = event.currentTarget;
+				if (input instanceof HTMLInputElement) {
+					applyReferenceZoomValue(input.value);
 				}
 			});
 		}
