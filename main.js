@@ -176,20 +176,26 @@
 			this.referenceFlipX = false;
 			this.referenceFlipY = false;
 			this.referenceOffset = {...DEFAULT_REFERENCE_OFFSET};
-			this.referenceZoom = DEFAULT_REFERENCE_ZOOM;
 			this.referenceZoom = clamp(
 				options.referenceZoom ?? DEFAULT_REFERENCE_ZOOM,
 				MIN_REFERENCE_ZOOM,
 				MAX_REFERENCE_ZOOM
 			);
+			this.referenceAdjustMode = false;
+			this.onReferenceTransformChange = options.onReferenceTransformChange ?? null;
+			this.onReferenceAdjustModeChange = options.onReferenceAdjustModeChange ?? null;
 			this.selectedIndex = null;
 			this.dragPointerId = null;
+			this.referencePanPointerId = null;
+			this.referencePanStart = null;
+			this.referencePanInitialOffset = null;
 			this.duplicateButton = options.duplicateButton ?? null;
 			this.deleteButton = options.deleteButton ?? null;
 
 			this.trailEnabled = true;
 
 			this.attachPointerHandlers();
+			this.attachWheelHandler();
 			this.updateControlButtons();
 			this.render();
 		}
@@ -395,6 +401,9 @@
 			const nextValue = normalized && this.hasReferenceImage();
 			if (this.referenceVisible === nextValue) return;
 			this.referenceVisible = nextValue;
+			if (!this.referenceVisible) {
+				this.setReferenceAdjustMode(false);
+			}
 			this.render();
 		}
 
@@ -412,6 +421,7 @@
 			if (this.hasReferenceImage()) {
 				this.render();
 			}
+			this.notifyReferenceTransformChange();
 		}
 
 		setReferenceFlipY(enabled) {
@@ -421,15 +431,19 @@
 			if (this.hasReferenceImage()) {
 				this.render();
 			}
+			this.notifyReferenceTransformChange();
 		}
 
-		setReferenceOffset(axis, value) {
+		setReferenceOffset(axis, value, silent = false) {
 			if (!(axis === "x" || axis === "y")) return;
 			const normalized = Number(value) || 0;
 			if (Math.abs(normalized - this.referenceOffset[axis]) < 0.1) return;
 			this.referenceOffset[axis] = normalized;
 			if (this.hasReferenceImage()) {
 				this.render();
+			}
+			if (!silent) {
+				this.notifyReferenceTransformChange();
 			}
 		}
 
@@ -440,12 +454,74 @@
 			if (this.hasReferenceImage()) {
 				this.render();
 			}
+			this.notifyReferenceTransformChange();
+		}
+
+		setReferenceZoomAroundPoint(value, canvasX, canvasY) {
+			if (!this.hasReferenceImage()) return;
+			const normalized = clamp(value, MIN_REFERENCE_ZOOM, MAX_REFERENCE_ZOOM);
+			const currentFit = computeContainFit(
+				this.referenceImage.width,
+				this.referenceImage.height,
+				this.buffer.width,
+				this.buffer.height,
+				this.referenceZoom
+			);
+			const newFit = computeContainFit(
+				this.referenceImage.width,
+				this.referenceImage.height,
+				this.buffer.width,
+				this.buffer.height,
+				normalized
+			);
+			const anchorX = canvasX ?? this.buffer.width / 2;
+			const anchorY = canvasY ?? this.buffer.height / 2;
+			const currentDrawX = currentFit.x + this.referenceOffset.x;
+			const currentDrawY = currentFit.y + this.referenceOffset.y;
+			const ratioX = currentFit.width ? (anchorX - currentDrawX) / currentFit.width : 0.5;
+			const ratioY = currentFit.height ? (anchorY - currentDrawY) / currentFit.height : 0.5;
+			const desiredDrawX = anchorX - ratioX * newFit.width;
+			const desiredDrawY = anchorY - ratioY * newFit.height;
+			this.referenceOffset.x = desiredDrawX - newFit.x;
+			this.referenceOffset.y = desiredDrawY - newFit.y;
+			this.referenceZoom = normalized;
+			this.render();
+			this.notifyReferenceTransformChange();
 		}
 
 		resetReferenceTransform() {
 			this.referenceFlipX = false;
 			this.referenceFlipY = false;
 			this.referenceOffset = {...DEFAULT_REFERENCE_OFFSET};
+			this.referenceZoom = DEFAULT_REFERENCE_ZOOM;
+			this.notifyReferenceTransformChange();
+		}
+
+		setReferenceAdjustMode(enabled) {
+			const next = Boolean(enabled) && this.hasReferenceImage();
+			if (this.referenceAdjustMode === next) return;
+			this.referenceAdjustMode = next;
+			if (!next) {
+				this.referencePanPointerId = null;
+				this.referencePanStart = null;
+				this.referencePanInitialOffset = null;
+			}
+			this.canvas.classList.toggle("reference-adjust-mode", this.referenceAdjustMode);
+			if (typeof this.onReferenceAdjustModeChange === "function") {
+				this.onReferenceAdjustModeChange(this.referenceAdjustMode);
+			}
+		}
+
+		notifyReferenceTransformChange() {
+			if (typeof this.onReferenceTransformChange === "function") {
+				this.onReferenceTransformChange({
+					flipX: this.referenceFlipX,
+					flipY: this.referenceFlipY,
+					offsetX: this.referenceOffset.x,
+					offsetY: this.referenceOffset.y,
+					zoom: this.referenceZoom,
+				});
+			}
 		}
 
 		setCurveSoftRadius(radius) {
@@ -481,9 +557,18 @@
 			this.canvas.addEventListener("pointercancel", this.onPointerUp);
 		}
 
+		attachWheelHandler() {
+			this.onWheel = this.handleWheel.bind(this);
+			this.canvas.addEventListener("wheel", this.onWheel, {passive: false});
+		}
+
 		handlePointerDown(event) {
 			if (event.button !== 0) return;
 			event.preventDefault();
+			if (this.referenceAdjustMode && this.hasReferenceImage()) {
+				this.startReferencePan(event);
+				return;
+			}
 			const canvasPos = this.getCanvasPositionFromEvent(event);
 			const hitIndex = this.hitTestControlPoint(canvasPos);
 
@@ -496,7 +581,41 @@
 			}
 		}
 
+		startReferencePan(event) {
+			const canvasPos = this.getCanvasPositionFromEvent(event);
+			this.referencePanPointerId = event.pointerId;
+			this.referencePanStart = canvasPos;
+			this.referencePanInitialOffset = {...this.referenceOffset};
+			this.canvas.setPointerCapture(event.pointerId);
+		}
+
+		updateReferencePan(event) {
+			if (!this.referencePanStart || !this.referencePanInitialOffset) return;
+			const canvasPos = this.getCanvasPositionFromEvent(event);
+			const deltaX = canvasPos.x - this.referencePanStart.x;
+			const deltaY = canvasPos.y - this.referencePanStart.y;
+			this.setReferenceOffset("x", this.referencePanInitialOffset.x + deltaX, true);
+			this.setReferenceOffset("y", this.referencePanInitialOffset.y + deltaY, true);
+			this.notifyReferenceTransformChange();
+		}
+
+		handleWheel(event) {
+			if (!this.referenceAdjustMode || !this.hasReferenceImage()) return;
+			event.preventDefault();
+			const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+			const targetZoom = clamp(this.referenceZoom * zoomFactor, MIN_REFERENCE_ZOOM, MAX_REFERENCE_ZOOM);
+			const anchor = this.getCanvasPositionFromEvent(event);
+			this.setReferenceZoomAroundPoint(targetZoom, anchor.x, anchor.y);
+		}
+
 		handlePointerMove(event) {
+			if (this.referenceAdjustMode && this.referencePanPointerId !== null) {
+				if (event.pointerId !== this.referencePanPointerId) return;
+				event.preventDefault();
+				this.updateReferencePan(event);
+				return;
+			}
+
 			if (this.dragPointerId === null || event.pointerId !== this.dragPointerId) return;
 			event.preventDefault();
 			if (this.selectedIndex === null) return;
@@ -512,6 +631,14 @@
 		}
 
 		handlePointerUp(event) {
+			if (this.referencePanPointerId !== null && event.pointerId === this.referencePanPointerId) {
+				this.canvas.releasePointerCapture(event.pointerId);
+				this.referencePanPointerId = null;
+				this.referencePanStart = null;
+				this.referencePanInitialOffset = null;
+				return;
+			}
+
 			if (this.dragPointerId !== null && event.pointerId === this.dragPointerId) {
 				this.canvas.releasePointerCapture(event.pointerId);
 				this.dragPointerId = null;
@@ -732,6 +859,7 @@
 		const referenceInput = document.getElementById("reference-input");
 		const referenceFileName = document.getElementById("reference-file-name");
 		const referenceToggle = document.getElementById("reference-toggle");
+		const referenceModeButton = document.getElementById("reference-mode-toggle");
 		const referenceFlipXToggle = document.getElementById("reference-flip-x");
 		const referenceFlipYToggle = document.getElementById("reference-flip-y");
 		const referenceOpacitySlider = document.getElementById("reference-opacity");
@@ -876,6 +1004,16 @@
 			}
 		};
 
+		const syncReferenceModeButton = () => {
+			if (referenceModeButton instanceof HTMLButtonElement) {
+				referenceModeButton.textContent = visualizer.referenceAdjustMode
+					? "Exit reference adjust"
+					: "Adjust reference";
+				referenceModeButton.setAttribute("aria-pressed", visualizer.referenceAdjustMode ? "true" : "false");
+				referenceModeButton.classList.toggle("active", visualizer.referenceAdjustMode);
+			}
+		};
+
 		const resetReferenceTransformDisplays = () => {
 			if (referenceFlipXToggle instanceof HTMLInputElement) {
 				referenceFlipXToggle.checked = false;
@@ -903,6 +1041,14 @@
 			}
 		};
 
+		visualizer.onReferenceTransformChange = () => {
+			syncReferenceTransformUi();
+		};
+
+		visualizer.onReferenceAdjustModeChange = () => {
+			syncReferenceModeButton();
+		};
+
 		const updateReferenceUiState = () => {
 			const hasImage = visualizer.hasReferenceImage();
 			setElementDisabled(referenceToggle, !hasImage);
@@ -910,6 +1056,7 @@
 			setElementDisabled(clearReferenceButton, !hasImage);
 			setElementDisabled(referenceFlipXToggle, !hasImage);
 			setElementDisabled(referenceFlipYToggle, !hasImage);
+			setElementDisabled(referenceModeButton, !hasImage);
 			setElementDisabled(referenceZoomSlider, !hasImage);
 			setElementDisabled(referencePanXSlider, !hasImage);
 			setElementDisabled(referencePanYSlider, !hasImage);
@@ -919,8 +1066,10 @@
 			if (hasImage) {
 				syncReferenceTransformUi();
 			} else {
+				visualizer.setReferenceAdjustMode(false);
 				resetReferenceTransformDisplays();
 			}
+			syncReferenceModeButton();
 		};
 
 		if (referenceToggle instanceof HTMLInputElement) {
@@ -929,6 +1078,14 @@
 				if (input instanceof HTMLInputElement) {
 					visualizer.setReferenceVisibility(input.checked);
 				}
+			});
+		}
+
+		if (referenceModeButton instanceof HTMLButtonElement) {
+			referenceModeButton.addEventListener("click", () => {
+				const next = !visualizer.referenceAdjustMode;
+				visualizer.setReferenceAdjustMode(next);
+				syncReferenceModeButton();
 			});
 		}
 

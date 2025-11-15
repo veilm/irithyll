@@ -19,6 +19,12 @@
 			canvas {
 				border: 1px solid currentColor;
 				margin-top: 48px;
+				transition: border-color 120ms ease, box-shadow 120ms ease;
+			}
+
+			canvas.reference-adjust-mode {
+				border-color: #f5b64a;
+				box-shadow: 0 0 18px rgba(245, 182, 74, 0.6);
 			}
 
 			.panel {
@@ -204,6 +210,7 @@
 							<input type="checkbox" id="reference-toggle" disabled />
 							<span>Show reference image</span>
 						</label>
+						<button id="reference-mode-toggle" disabled>Adjust reference</button>
 						<button id="clear-reference" disabled>Clear</button>
 					</div>
 					<div class="reference-controls">
