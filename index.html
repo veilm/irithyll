@@ -7,9 +7,9 @@
 		<style>
 			body {
 				margin: 0;
-				font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-				background-color: #050505;
-				color: #dc143c;
+				font-family: serif;
+				background-color: #111;
+				color: #ddd;
 				display: flex;
 				flex-direction: column;
 				align-items: center;
@@ -17,14 +17,12 @@
 			}
 
 			canvas {
-				border: 1px solid currentColor;
+				border: 1px solid #555;
 				margin-top: 48px;
-				transition: border-color 120ms ease, box-shadow 120ms ease;
 			}
 
 			canvas.reference-adjust-mode {
 				border-color: #f5b64a;
-				box-shadow: 0 0 18px rgba(245, 182, 74, 0.6);
 			}
 
 			.panel {
@@ -38,8 +36,6 @@
 			}
 
 			.hud {
-				font-size: 0.95rem;
-				color: #fceaea;
 				text-align: center;
 			}
 
@@ -55,16 +51,11 @@
 				flex-direction: column;
 				gap: 10px;
 				padding: 12px 16px;
-				border: 1px solid rgba(220, 20, 60, 0.45);
-				border-radius: 10px;
-				background: rgba(255, 255, 255, 0.02);
+				border: 1px solid #444;
 			}
 
 			.section-title {
-				text-transform: uppercase;
-				font-size: 0.75rem;
-				letter-spacing: 0.08em;
-				color: rgba(252, 234, 234, 0.7);
+				font-weight: bold;
 			}
 
 			.toggle-control {
@@ -84,74 +75,37 @@
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
-				font-size: 0.85rem;
-				color: rgba(252, 234, 234, 0.85);
 			}
 
 			.slider-value {
 				font-variant-numeric: tabular-nums;
-				font-weight: 600;
 			}
 
-			.controls input[type="checkbox"] {
-				width: 18px;
-				height: 18px;
-				accent-color: #ff355e;
+			.controls input[type="checkbox"],
+			.controls input[type="range"] {
+				accent-color: #aaa;
 			}
 
 			.controls input[type="range"] {
-				appearance: none;
 				width: 100%;
-				height: 4px;
-				border-radius: 999px;
-				background: linear-gradient(90deg, #4b050f, #dc143c 60%, #ff5470);
-				outline: none;
-			}
-
-			.controls input[type="range"]::-webkit-slider-thumb {
-				appearance: none;
-				width: 14px;
-				height: 14px;
-				border-radius: 50%;
-				background: #fceaea;
-				border: 2px solid #dc143c;
-				box-shadow: 0 0 8px rgba(220, 20, 60, 0.6);
-				cursor: grab;
-			}
-
-			.controls input[type="range"]::-moz-range-thumb {
-				width: 14px;
-				height: 14px;
-				border-radius: 50%;
-				background: #fceaea;
-				border: 2px solid #dc143c;
-				box-shadow: 0 0 8px rgba(220, 20, 60, 0.6);
-				cursor: grab;
-			}
-
-			.controls input[type="range"]::-moz-range-track {
-				background: transparent;
 			}
 
 			.controls button {
-				background: transparent;
-				border: 1px solid rgba(220, 20, 60, 0.8);
-				color: #fceaea;
-				text-transform: uppercase;
-				letter-spacing: 0.05em;
-				padding: 6px 12px;
-				border-radius: 4px;
-				transition: background 120ms ease, color 120ms ease;
+				font: inherit;
+				background: #222;
+				border: 1px solid #666;
+				color: #ddd;
+				padding: 4px 10px;
 				cursor: pointer;
 			}
 
 			.controls button:disabled {
-				opacity: 0.35;
+				opacity: 0.4;
 				cursor: not-allowed;
 			}
 
 			.controls button:not(:disabled):hover {
-				background: rgba(220, 20, 60, 0.15);
+				background: #333;
 			}
 
 			.action-buttons {
@@ -167,13 +121,8 @@
 				flex-wrap: wrap;
 			}
 
-			.file-input-row input[type="file"] {
-				color: #fceaea;
-			}
-
 			.reference-status {
-				font-size: 0.8rem;
-				color: rgba(252, 234, 234, 0.7);
+				color: #999;
 			}
 
 			.reference-controls {
